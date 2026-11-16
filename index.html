@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>老年人智能伴侣 · 稳固防拦截版</title>
+<title>老年人智能伴侣 · 真实AI海量版</title>
 <style>
 :root { --color-bg: #FFFDF6; --color-primary: #507899; --color-text: #222222; --color-danger: #d64545; --color-line: #EDE6D3; --font-base: 20px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
@@ -51,10 +51,9 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
 .dialog p { margin-bottom: 20px; font-size: 1rem; color: #555; }
 .toast { position: absolute; left: 50%; bottom: 130px; transform: translateX(-50%); background: rgba(34,34,34,0.92); color: #fff; font-size: 1rem; padding: 14px 24px; border-radius: 16px; z-index: 60; text-align: center; white-space: nowrap; }
 
-.list-item { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 2px solid var(--color-line); border-radius: 16px; padding: 16px; margin-bottom: 14px; cursor: pointer; }
-.news-item { display: flex; flex-direction: column; gap: 6px; }
+.list-item { display: flex; flex-direction: column; align-items: flex-start; background: #fff; border: 2px solid var(--color-line); border-radius: 16px; padding: 16px; margin-bottom: 14px; cursor: pointer; gap: 8px; }
 .news-title { font-weight: 600; font-size: 1.1rem; color: var(--color-text); }
-.news-desc { font-size: 0.9rem; color: #666; line-height: 1.4; }
+.news-desc { font-size: 0.9rem; color: #666; line-height: 1.5; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 
 .section-title { font-size: 1.1rem; font-weight: 700; color: var(--color-primary); margin: 20px 0 10px; display: flex; align-items: center; gap: 8px; }
 </style>
@@ -65,7 +64,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
   <audio id="globalAudio"></audio>
 
   <section class="screen active" id="p1" data-read="老年人智能伴侣。贴心陪伴，守护长辈平安。">
-    <div class="center"><div style="font-size:4rem;text-align:center;">👵</div><h1 style="font-size:1.6rem;text-align:center;margin:20px 0 10px;">老年人智能伴侣</h1><p style="text-align:center;color:#777;">AI 智能体 · 陪伴每一天</p></div>
+    <div class="center"><div style="font-size:4rem;text-align:center;">👵</div><h1 style="font-size:1.6rem;text-align:center;margin:20px 0 10px;">老年人智能伴侣</h1><p style="text-align:center;color:#777;">真实AI对话 · 海量资讯故事</p></div>
     <button class="btn" onclick="Router.go('p3'); System.speak('欢迎使用智能伴侣')">开始使用</button>
   </section>
 
@@ -135,8 +134,8 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
   <section class="screen" id="p9" data-read="我的生活提醒。">
     <div class="header"><button class="back" onclick="Router.go('p3')">←</button><h2 class="title">⏰ 我的生活提醒</h2></div>
     <div id="reminderList"></div>
-    <!-- 修复：直接调用路由，使用户能秒切页面 -->
-    <button class="btn" onclick="Router.go('p10')">＋ 新增提醒</button>
+    <button class="btn" style="background:#8B5A2B;" onclick="ReminderManager.generateAIReminder(this)">✨ 让 AI 推荐新提醒</button>
+    <button class="btn secondary" onclick="Router.go('p10')">＋ 手动新增提醒</button>
   </section>
 
   <section class="screen" id="p10" data-read="新增提醒。">
@@ -144,7 +143,6 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
     <div style="margin-bottom:8px;">提醒什么</div>
     <input id="newRemindText" class="input" placeholder="例如：吃降压药">
     <div style="flex:1"></div>
-    <!-- 修复：直接调用保存逻辑 -->
     <button class="btn" onclick="ReminderManager.saveNew()">保存提醒</button>
     <button class="btn secondary" onclick="Router.go('p9')">取消</button>
   </section>
@@ -155,10 +153,24 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
       <b>添加新联系人</b>
       <input id="quickName" class="input" placeholder="姓名 (例如：大孙子)" style="margin-top:10px; margin-bottom:8px; height:50px;">
       <input id="quickPhone" class="input" placeholder="手机号" style="margin-bottom:8px; height:50px;">
-      <!-- 修复：强制调用保存逻辑 -->
       <button class="btn" style="min-height:50px; margin-top:0;" onclick="ContactManager.quickAdd()">确认添加</button>
     </div>
     <div id="contactList"></div>
+  </section>
+
+  <section class="screen" id="p_chat_text" data-read="文字聊天界面。">
+    <div class="header"><button class="back" onclick="Router.go('p14')">←</button><h2 class="title" id="chatWithName">和儿子聊天</h2></div>
+    <div class="chat" id="familyTextChatBox"></div>
+    <div style="display: flex; gap: 8px;">
+      <input id="familyTextInput" class="input" placeholder="输入想说的话..." style="margin-bottom:0; flex:1;">
+      <button class="btn" style="width: 80px; min-height:64px; margin-top:0;" onclick="FamilyChat.sendText()">发送</button>
+    </div>
+  </section>
+
+  <section class="screen" id="p_chat_voice" data-read="语音聊天界面。">
+    <div class="header"><button class="back" onclick="Router.go('p14')">←</button><h2 class="title" id="voiceChatWithName">和儿子语音</h2></div>
+    <div class="chat" id="familyVoiceChatBox"></div>
+    <button class="btn" id="familyTalkBtn" onmousedown="FamilyChat.startVoice(event)" onmouseup="FamilyChat.stopVoice(event)" onmouseleave="FamilyChat.stopVoice(event)" ontouchstart="FamilyChat.startVoice(event)" ontouchend="FamilyChat.stopVoice(event)">🎙️ 按住说话</button>
   </section>
 
   <section class="screen" id="p15" data-read="正在呼叫。">
@@ -211,43 +223,29 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
 </div>
 
 <script>
-/* ================= 0. 内存级数据枢纽 (彻底解决浏览器禁用 localStorage 导致的添加失败) ================= */
+/* ================= 0. 内存级数据枢纽 ================= */
 const Store = {
-  // 初始化读取数据
-  reminders: [
-    { text: "💊 吃降压药", time: "每天 08:00" }
-  ],
+  reminders: [{ text: "💊 吃降压药", time: "每天 08:00" }],
   contacts: [
     { id: 1, name: "儿子", phone: "13800138000", avatar: "👨" },
     { id: 2, name: "女儿", phone: "13900139000", avatar: "👩" }
   ],
+  currentContact: null,
 
   init() {
     try {
       let r = localStorage.getItem('reminders');
-      if (r) {
-        let parsed = JSON.parse(r);
-        if (Array.isArray(parsed) && parsed.length > 0) this.reminders = parsed;
-      }
+      if (r) { let parsed = JSON.parse(r); if (Array.isArray(parsed) && parsed.length > 0) this.reminders = parsed; }
     } catch(e) {}
-    
     try {
       let c = localStorage.getItem('elder_contacts');
-      if (c) {
-        let parsed = JSON.parse(c);
-        if (Array.isArray(parsed) && parsed.length > 0) this.contacts = parsed;
-      }
+      if (c) { let parsed = JSON.parse(c); if (Array.isArray(parsed) && parsed.length > 0) this.contacts = parsed; }
     } catch(e) {}
   },
-
-  saveReminders() {
-    try { localStorage.setItem('reminders', JSON.stringify(this.reminders)); } catch(e) {}
-  },
-  saveContacts() {
-    try { localStorage.setItem('elder_contacts', JSON.stringify(this.contacts)); } catch(e) {}
-  }
+  saveReminders() { try { localStorage.setItem('reminders', JSON.stringify(this.reminders)); } catch(e) {} },
+  saveContacts() { try { localStorage.setItem('elder_contacts', JSON.stringify(this.contacts)); } catch(e) {} }
 };
-Store.init(); // 启动时初始化
+Store.init();
 
 /* ================= 1. 系统基础能力 ================= */
 const System = {
@@ -259,53 +257,155 @@ const System = {
   changeFont(size, btn) { document.documentElement.style.setProperty('--font-base', size); document.querySelectorAll('#p21 .btn').forEach(b => b.classList.add('secondary')); btn.classList.remove('secondary'); this.toast('字体已改变'); }
 };
 
-/* ================= 2. 真实 AI 智能体引擎 ================= */
+/* ================= 2. 真实 AI 接口封装 ================= */
 const AIService = {
-  history: [{ role: "system", content: "你是极其智能、有耐心的老年人AI伴侣。说话要简短、温柔、接地气。严禁使用网络用语或复杂长句。如果老人提到转账、汇款、银行卡，立刻严肃提醒防诈骗。" }],
-  
-  async ask(text) {
-    if (text.includes('吃药') || text.includes('提醒我')) { setTimeout(() => Router.go('p10'), 500); return "好的，已经为您打开添加提醒页面啦，您可以在上面输入吃药的时间。"; }
-    if (text.includes('转账') || text.includes('银行卡') || text.includes('密码')) { setTimeout(() => System.showDialog("⚠️ 安全警告", "请千万不要给陌生人转账！那是骗子的常用话术。"), 2000); return "停！千万别转账，遇到要钱的先给家人打个电话确认一下。"; }
-    if (text.includes('新闻') || text.includes('资讯')) { setTimeout(() => Router.go('p_news'), 1000); return "好的，为您打开今日真实新闻资讯。"; }
-    if (text.includes('故事')) { setTimeout(() => Router.go('p8'), 1000); return "好的，为您打开小故事列表。"; }
-    if (text.includes('戏曲') || text.includes('黄梅戏') || text.includes('听歌')) { setTimeout(() => Router.go('p6'), 1000); return "好的，为您打开戏曲大观园。"; }
-
+  async fetchAI(prompt) {
     try {
-      this.history.push({ role: "user", content: text });
-      const res = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
+      const res = await fetch('https://api.vvhan.com/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai-fast', messages: this.history.slice(-5), max_tokens: 150, temperature: 0.7 }),
-        signal: AbortSignal.timeout(5000)
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ msg: prompt }),
+        signal: AbortSignal.timeout(6000)
       });
-      const data = await res.json();
-      const reply = data.choices[0].message.content.trim();
-      this.history.push({ role: "assistant", content: reply });
-      return reply;
-    } catch (e) {
-      if (text.includes('天气')) return "今天天气不错，阳光明媚，适合您去公园散散步，记得多穿件外套哦。";
-      if (text.includes('儿子') || text.includes('女儿') || text.includes('孩子')) return "想孩子们啦？您可以去「亲情联系」页面，点一下就能直接给他们打视频电话了。";
-      return "网络好像有点慢，不过没关系，我还在您身边陪着您。";
-    }
+      if(res.ok) {
+        const data = await res.json();
+        if(data.success && data.data && data.data.reply) {
+           return data.data.reply.replace(/["「」『』]/g, '').trim();
+        }
+      }
+    } catch(e) {}
+    return null;
+  },
+
+  async askMain(text) {
+    if (text.includes('吃药') || text.includes('提醒我')) { setTimeout(() => Router.go('p10'), 500); return "好的，已经为您打开添加提醒页面啦。"; }
+    if (text.includes('转账') || text.includes('银行卡')) { setTimeout(() => System.showDialog("⚠️ 安全警告", "请千万不要给陌生人转账！"), 2000); return "停！千万别转账。"; }
+    if (text.includes('新闻') || text.includes('资讯')) { setTimeout(() => Router.go('p_news'), 1000); return "好的，为您打开今日资讯。"; }
+    if (text.includes('故事')) { setTimeout(() => Router.go('p8'), 1000); return "好的，为您打开小故事列表。"; }
+    if (text.includes('戏曲') || text.includes('听歌')) { setTimeout(() => Router.go('p6'), 1000); return "好的，为您打开戏曲大观园。"; }
+
+    const reply = await this.fetchAI(text);
+    if (reply) return reply;
+    if (text.includes('天气')) return "今天天气不错，适合散步，记得多穿衣服哦。";
+    return "网络好像有点慢，我还在您身边陪着您。";
   }
 };
 
-/* ================= 3. 资讯管理 ================= */
+/* ================= 3. 亲情聊天引擎 ================= */
+const FamilyChat = {
+  textHistory: {},
+  voiceHistory: {},
+  
+  initSession(contactName) {
+    if(!this.textHistory[contactName]) {
+      this.textHistory[contactName] = [{ role: "system", content: `你现在是老人的家人，名字叫${contactName}。请用极其亲切、简短、口语化的口吻回复老人，不要用书面语，每次不超过两句话。` }];
+    }
+    if(!this.voiceHistory[contactName]) {
+      this.voiceHistory[contactName] = [{ role: "system", content: `你现在是老人的家人，名字叫${contactName}。请用极其亲切、简短、口语化的口吻回复老人，每次不超过两句话。` }];
+    }
+  },
+
+  openText(contactName) {
+    Store.currentContact = contactName;
+    this.initSession(contactName);
+    document.getElementById('chatWithName').textContent = `和${contactName}聊天`;
+    document.getElementById('familyTextChatBox').innerHTML = `<div class="bubble ai">${contactName}：爸/妈，我正在看手机呢，您想聊点啥？</div>`;
+    Router.go('p_chat_text');
+  },
+
+  async sendText() {
+    const inputEl = document.getElementById('familyTextInput');
+    const text = inputEl.value.trim();
+    if(!text) return;
+    inputEl.value = '';
+    
+    const box = document.getElementById('familyTextChatBox');
+    const meBubble = document.createElement('div'); meBubble.className = 'bubble me'; meBubble.textContent = text; box.appendChild(meBubble); box.scrollTop = box.scrollHeight;
+    
+    const loadBubble = document.createElement('div'); loadBubble.className = 'bubble ai loading'; loadBubble.textContent = '对方正在输入...'; box.appendChild(loadBubble); box.scrollTop = box.scrollHeight;
+    
+    const prompt = `请以家人【${Store.currentContact}】的身份回复：${text}`;
+    let reply = await AIService.fetchAI(prompt);
+    if(!reply) reply = "好嘞，我知道了，您自己在家多注意身体啊！";
+
+    loadBubble.remove();
+    const aiBubble = document.createElement('div'); aiBubble.className = 'bubble ai'; aiBubble.textContent = reply; box.appendChild(aiBubble); box.scrollTop = box.scrollHeight;
+    System.speak(reply);
+  },
+
+  openVoice(contactName) {
+    Store.currentContact = contactName;
+    this.initSession(contactName);
+    document.getElementById('voiceChatWithName').textContent = `和${contactName}语音`;
+    document.getElementById('familyVoiceChatBox').innerHTML = `<div class="bubble ai">${contactName}：爸/妈，您说，我听着呢。</div>`;
+    Router.go('p_chat_voice');
+  },
+
+  startVoice(e) {
+    if (e) e.preventDefault();
+    const btn = document.getElementById('familyTalkBtn');
+    btn.classList.add('recording'); btn.textContent = '🎙️ 正在聆听…';
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { System.toast('浏览器不支持语音'); btn.classList.remove('recording'); btn.textContent = '🎙️ 按住说话'; return; }
+    
+    this.recognition = new SR();
+    this.recognition.lang = 'zh-CN';
+    this.recognition.onresult = (ev) => this.handleVoiceInput(ev.results[0][0].transcript);
+    try { this.recognition.start(); } catch(e) {}
+  },
+
+  stopVoice() {
+    const btn = document.getElementById('familyTalkBtn');
+    btn.classList.remove('recording'); btn.textContent = '🎙️ 按住说话';
+    if (this.recognition) { try { this.recognition.stop(); } catch(e){} this.recognition = null; }
+  },
+
+  async handleVoiceInput(text) {
+    if (!text.trim()) return;
+    const box = document.getElementById('familyVoiceChatBox');
+    const meBubble = document.createElement('div'); meBubble.className = 'bubble me'; meBubble.textContent = text; box.appendChild(meBubble); box.scrollTop = box.scrollHeight;
+    const loadBubble = document.createElement('div'); loadBubble.className = 'bubble ai loading'; loadBubble.textContent = '对方正在回复...'; box.appendChild(loadBubble); box.scrollTop = box.scrollHeight;
+    
+    const prompt = `请以家人【${Store.currentContact}】的身份回复：${text}`;
+    let reply = await AIService.fetchAI(prompt);
+    if(!reply) reply = "好嘞，我知道了，您自己在家多注意身体啊！";
+
+    loadBubble.remove();
+    const aiBubble = document.createElement('div'); aiBubble.className = 'bubble ai'; aiBubble.textContent = reply; box.appendChild(aiBubble); box.scrollTop = box.scrollHeight;
+    System.speak(reply);
+  }
+};
+
+/* ================= 4. 资讯管理 (海量池 + AI实时 + 内容展示) ================= */
 const NewsManager = {
   localNews: [
-    { title: "🌤️ 节气养生提示", content: "近期气温变化较大，早晚温差明显。老年朋友要注意防寒保暖，特别是头部和关节部位。饮食上建议多吃温润的食物，比如银耳、百合、山药，少吃生冷。早晨锻炼不宜过早，等太阳出来后再去公园散步是最好的。" },
-    { title: "🛡️ 防诈骗紧急提醒", content: "各位老年朋友请注意，近期出现多起冒充“孙子”或“公检法”的诈骗案件。骗子会打电话说您家人出车祸急需用钱。凡是要求您转账汇款到“安全账户”的，100%是诈骗。遇到这种事，一定要先挂断电话，给儿子女儿打个电话核实，或者直接拨打110报警。" },
-    { title: "🎵 经典老歌背后的故事", content: "大家都很熟悉《南泥湾》这首歌。当年八路军359旅在荒无人烟的南泥湾开荒种地，硬是把烂泥湾变成了陕北的好江南。这首歌不仅旋律优美，更代表了咱们中国人不怕困难、勤劳奋斗的精神。" },
-    { title: "💊 用药安全小常识", content: "很多老年朋友同时患有几种慢性病，需要吃好几种药。专家提醒：千万不要把药混在一起吃，最好分装在小药盒里，标明早中晚。另外，吃降压药后不要立刻洗澡，以免引起头晕。" },
-    { title: "🍵 健康饮食指南", content: "老年人消化功能减退，饮食要尽量清淡、软烂。每天保证一个鸡蛋、一杯牛奶，多吃新鲜的绿叶蔬菜。吃饭时要注意细嚼慢咽，不要吃太烫的食物，以免烫伤食道。" }
+    { title: "🌤️ 节气养生提示", content: "近期气温变化较大，早晚温差明显。老年朋友要注意防寒保暖，特别是头部和关节部位。饮食上建议多吃温润的食物，比如银耳、百合、山药。" },
+    { title: "🛡️ 防诈骗紧急提醒", content: "近期出现多起冒充“孙子”或“公检法”的诈骗案件。凡是要求您转账汇款到“安全账户”的，100%是诈骗。遇到这种事，一定要先挂断电话核实。" },
+    { title: "🎵 经典老歌背后的故事", content: "《南泥湾》这首歌，当年八路军359旅在荒无人烟的南泥湾开荒种地，硬是把烂泥湾变成了陕北的好江南。代表了咱们中国人不怕困难的精神。" },
+    { title: "💊 用药安全小常识", content: "很多老年朋友同时患有几种慢性病。专家提醒：千万不要把药混在一起吃，最好分装在小药盒里，标明早中晚。吃降压药后不要立刻洗澡。" },
+    { title: "🍵 健康饮食指南", content: "老年人消化功能减退，饮食要尽量清淡、软烂。每天保证一个鸡蛋、一杯牛奶，多吃新鲜的绿叶蔬菜。吃饭时要注意细嚼慢咽。" }
   ],
   localAITips: [
-    "各位爷爷奶奶好，我是AI小助手。今天为您播报一条新的养生提示：秋天到了，早晚温差大，记得穿件马甲保暖。平时多喝温水，少吃辛辣，祝您健康长寿！",
-    "AI紧急播报：近期有骗子冒充燃气公司上门收费，请爷爷奶奶们千万不要随便给陌生人开门，有任何收费先给孩子们打电话核实！",
-    "大家好，今天给您分享一个长寿小秘诀：每天笑一笑，烦恼全忘掉。多去公园呼吸新鲜空气，和老朋友聊聊天，身体自然好。",
-    "温馨提示：最近流感多发，去人多的地方记得戴好口罩。回家第一件事先洗手，家里多开窗通风，保持空气流通。",
+    "AI温馨提示：秋天到了，早晚温差大，爷爷奶奶们记得穿件马甲保暖。平时多喝温水，少吃辛辣，祝您健康长寿！",
+    "AI紧急播报：近期有骗子冒充燃气公司上门收费，请千万不要随便给陌生人开门，有任何收费先给孩子们打电话核实！",
+    "今天给您分享一个长寿小秘诀：每天笑一笑，烦恼全忘掉。多去公园呼吸新鲜空气，和老朋友聊聊天，身体自然好。",
+    "温馨提示：最近流感多发，去人多的地方记得戴好口罩。回家第一件事先洗手，家里多开窗通风。",
     "今天教大家一个护膝小动作：坐在椅子上，双腿伸直，脚尖用力往上勾，坚持5秒再放下，每天做20次，腿脚更利索。",
-    "遇到推销保健品的一定要警惕，如果对方说能“包治百病”，那绝对是骗人的。身体不舒服一定要去正规医院看医生。"
+    "遇到推销保健品的一定要警惕，如果对方说能“包治百病”，那绝对是骗人的。身体不舒服一定要去正规医院。",
+    "睡前用热水泡脚20分钟，能促进血液循环，改善睡眠质量。水温不要太烫，40度左右最合适。",
+    "老人们常说“千金难买老来瘦”，但其实微胖一点更健康。平时多吃点鱼肉、鸡肉，补充优质蛋白质。",
+    "每天吃一个苹果，医生远离我。苹果含有丰富的维生素，对心血管特别好。牙口不好的老人可以切成小块煮水喝。",
+    "早晨起床不要太猛，先在床上躺半分钟，再坐在床边等半分钟，最后慢慢站起来，防止脑供血不足导致头晕摔倒。",
+    "高血压患者一定要按时吃药，千万不要觉得头不晕了就停药。停药容易导致血压反弹，非常危险。",
+    "下雨下雪天路面湿滑，老年人尽量少出门。如果必须出门，一定要穿防滑鞋，拄好拐杖，走慢一点。",
+    "多吃深色蔬菜，比如菠菜、西兰花、紫甘蓝。它们含有丰富的抗氧化物质，能延缓衰老，保护视力。",
+    "家里有燃气灶的，做完饭一定要检查阀门有没有关紧。最好安装一个燃气报警器，安全第一。",
+    "老年人最好每年做一次全面体检。很多疾病早期没有症状，早发现早治疗，少受罪少花钱。",
+    "秋季干燥易咳嗽，可以用冰糖和雪梨熬水喝，有很好的润肺止咳效果。脾胃虚寒的老人不要喝太多。",
+    "出门前默念四个字：身、手、钥、钱（身份证、手机、钥匙、钱包），防止丢三落四。",
+    "如果遇到陌生电话让您猜猜他是谁，千万不要猜，直接挂断，这通常是骗子的套路。",
+    "每天午休半小时，能让心脏得到休息，下午更有精神。但午休时间不宜过长，超过一小时容易头晕。",
+    "老年人看电视时，音量不要开得太大，时间不要连续超过两小时，每隔半小时起身活动一下。"
   ],
 
   init() { 
@@ -314,8 +414,9 @@ const NewsManager = {
     container.innerHTML = '';
     this.localNews.forEach((news) => {
       const div = document.createElement('div');
-      div.className = 'list-item news-item';
-      div.innerHTML = `<div class="news-title">${news.title}</div><div class="news-desc">点击听语音播报</div>`;
+      div.className = 'list-item';
+      // 修复：在列表直接展示内容前40个字
+      div.innerHTML = `<div class="news-title">${news.title}</div><div class="news-desc">${news.content}</div>`;
       div.onclick = () => {
         System.speak(news.content);
         System.showDialog(news.title, `<span style="font-size:1rem;color:#333;text-align:left;display:block;line-height:1.6;">${news.content}</span>`);
@@ -329,16 +430,9 @@ const NewsManager = {
     btn.innerHTML = '✨ AI 正在思考新内容...';
     btn.disabled = true;
 
-    let aiText = "";
-    try {
-      const seed = Math.random().toString(36).substring(7);
-      const prompt = `请用温柔亲切的口吻，给老年人播报一段100字左右的今日健康养生或者防诈骗小贴士。要求内容有新意，不能重复。 (随机码:${seed})`;
-      const res = await fetch(`https://api.vvhan.com/api/chat?msg=${encodeURIComponent(prompt)}`, { timeout: 5000 });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.data && data.data.reply) aiText = data.data.reply;
-      }
-    } catch (e) { console.log('AI资讯生成失败，启用本地兜底'); }
+    const seed = Math.random().toString(36).substring(7);
+    const prompt = `你是老年人健康助手。请随机生成一条全新的、100字左右的老年人养生、防骗或生活注意事项。要求内容有新意，不能和之前重复。只回复正文。 (验证码:${seed})`;
+    let aiText = await AIService.fetchAI(prompt);
 
     if (!aiText) {
       aiText = this.localAITips[Math.floor(Math.random() * this.localAITips.length)];
@@ -346,7 +440,7 @@ const NewsManager = {
 
     const container = document.getElementById('newsContainer');
     const div = document.createElement('div');
-    div.className = 'list-item news-item';
+    div.className = 'list-item';
     div.innerHTML = `<div class="news-title">✨ AI 最新播报</div><div class="news-desc">${aiText}</div>`;
     div.onclick = () => {
       System.speak(aiText);
@@ -362,18 +456,26 @@ const NewsManager = {
   }
 };
 
-/* ================= 4. 故事管理 ================= */
+/* ================= 5. 故事管理 (海量池 + AI实时 + 内容展示) ================= */
 const StoryManager = {
   stories: [
-    { title: "塞翁失马", content: "从前有位老人，他的马丢了，邻居们都来安慰他。老人却说：“这怎么就不能是一件好事呢？”过了几个月，那匹马不仅自己回来了，还带回来一匹骏马。邻居们又来祝贺他，老人却说：“这怎么就不能是一件坏事呢？”结果他儿子骑马摔断了腿。邻居们又来安慰，老人说：“这不一定是坏事。”后来发生战争，年轻人都被拉去打仗死去了，只有他儿子因为残疾保全了性命。这个故事告诉我们，遇到坏事不要太过悲伤，遇到好事也不要太得意。" },
-    { title: "盲人点灯", content: "有一个盲人晚上出门，总是提着一个明亮的灯笼。别人看了觉得奇怪，就问他：“你是个盲人，什么也看不见，提个灯笼有什么用呢？”盲人笑着说：“我提灯笼是为了给别人照亮路，这样别人就能看见我，就不会不小心撞到我了。”这个故事告诉我们，照亮别人，其实就是保护自己；帮助别人，自己也会得到好处。" },
-    { title: "心中的顽石", content: "从前有一户人家的菜园里，有一块大石头。去菜园的人，不小心就会踢到那块大石头，不是跌倒就是擦伤。儿子问：“爸爸，那块讨厌的石头，为什么不把它挖走？”爸爸说：“那石头很大，挖不动的。”有一天，儿子带着锄头和一桶水，将整桶水倒在大石头的四周。十几分钟后，他决定挖开泥土看看，原来那块石头并没有想象中那么大，它只是一块被泥土掩盖的小石头。这个故事告诉我们，不要被困难吓倒，很多难题其实都是我们心里的假想敌。" },
-    { title: "天堂与地狱", content: "有一个人想知道天堂和地狱的区别，上帝带他去参观。他们先来到地狱，看到一群人围着一口大锅，手里拿着长长的勺子。虽然锅里有肉汤，但勺子太长，怎么也无法把汤送进自己嘴里，大家面黄肌瘦，非常痛苦。接着上帝带他来到天堂，同样的锅，同样的长勺子。但这里的人却满面红光，因为他们都在用长勺子舀汤喂给别人吃。这个故事告诉我们，只顾自己只会让自己痛苦，互相帮助才能共同过上好日子。" }
+    { title: "塞翁失马", content: "从前有位老人，他的马丢了。老人却说：“这怎么就不能是一件好事呢？”后来马带回来一匹骏马。老人说：“这不一定是好事。”结果儿子摔断了腿，却因此躲过战乱保全了性命。这告诉我们，遇到坏事不要太过悲伤，遇到好事也不要太得意。" },
+    { title: "盲人点灯", content: "有一个盲人晚上出门，总是提着一个明亮的灯笼。别人问：“你什么也看不见，提灯笼有什么用？”盲人笑着说：“我提灯笼是为了给别人照亮路，这样别人就能看见我，就不会撞到我了。”照亮别人，其实就是保护自己。" },
+    { title: "心中的顽石", content: "从前有一户人家的菜园里，有一块大石头。去菜园的人，不小心就会踢到那块大石头，不是跌倒就是擦伤。有一天，儿子带着锄头和一桶水，将整桶水倒在大石头的四周。十几分钟后，他决定挖开泥土看看，原来那块石头并没有想象中那么大。这个故事告诉我们，不要被困难吓倒，很多难题其实都是我们心里的假想敌。" },
+    { title: "天堂与地狱", content: "上帝带人去参观地狱，看到一群人拿着长勺子，无法把汤送进嘴里，痛苦不堪。到了天堂，同样的勺子，大家却互相喂食，满面红光。只顾自己只会痛苦，互相帮助才能过上好日子。" },
+    { title: "老木匠的房子", content: "有个老木匠准备退休，老板请他帮忙再建最后一座房子。老木匠心思不在工作上，用料马马虎虎。房子建好后，老板把钥匙递给他：“这是送给你的退休礼物。”老木匠羞愧得无地自容。我们每天都在建造自己的生活，尽心尽力最终受益的都是自己。" }
   ],
   localAIStories: [
-    "有一个老和尚和小和尚下山，遇到一条河，有个姑娘不敢过河。老和尚就背起姑娘过了河，放下姑娘后继续赶路。小和尚心里一直嘀咕，走了二十里地终于忍不住问：“师傅，你背个姑娘，不是犯了戒吗？”老和尚说：“我早就把她放下了，你怎么还背在心里二十里地呢？”这个故事告诉我们，过去的事情就让它过去，不要总是放在心上折磨自己。",
-    "有个人买了一双新鞋，天天穿。有一天不小心踩到了泥里，一开始他还小心翼翼，后来一狠心，干脆大步走起来。这个故事告诉我们，有些时候，既然事情已经发生了，不如放宽心，顺其自然。",
-    "有一只乌鸦非常口渴，找到了一个水瓶，但水太浅够不着。它没有放弃，而是叼来小石子一颗颗放进瓶子里，水升高了，它喝到了水。这告诉我们，遇到困难不要慌，多动脑筋，坚持就能成功。"
+    "有一个老和尚和小和尚下山，遇到一条河，有个姑娘不敢过河。老和尚背起姑娘过了河，放下后继续赶路。小和尚问：“师傅，你不是犯了戒吗？”老和尚说：“我早就把她放下了，你怎么还背在心里呢？”过去的事情就让它过去，不要折磨自己。",
+    "有个人买了一双新鞋，不小心踩到了泥里，一开始小心翼翼，后来一狠心大步走起来。既然事情已经发生了，不如放宽心，顺其自然。",
+    "有一只乌鸦口渴，找了一个水瓶，但水太浅。它叼来小石子放进瓶子里，水升高了，它喝到了水。遇到困难不要慌，多动脑筋，坚持就能成功。",
+    "两个人走在沙漠里，只剩下一杯水。悲观的人说：“完了，只剩一杯水。”乐观的人说：“太好了，还有一杯水。”最后乐观的人走出了沙漠。心态决定命运。",
+    "有个孩子脾气坏，父亲让他每次发脾气就在木板上钉钉子。后来孩子学会了控制，父亲让他拔掉钉子，但留下了深深的孔。发脾气造成的伤害，就像钉孔一样难以抹平。",
+    "一只小壁虎被蛇咬住了尾巴，它拼命挣断尾巴逃跑了。它很难过自己没有尾巴了。妈妈说：“孩子，虽然失去了尾巴，但你保住了命，而且不久就会长出新的尾巴来。”有时候，失去也是一种获得。",
+    "孔子带弟子去太庙参观，看到一个奇特的小铜人，嘴巴被封了三道封条，背上刻着：“古之慎言人也”。孔子借此教育弟子：说话要谨慎，多听少说。",
+    "有一群青蛙在比赛爬铁塔，大家都说太高了爬不上去，很多青蛙放弃了。只有一只聋青蛙，什么都不管，只管往上爬，最后登上了塔顶。有时候，屏蔽外界的质疑，专注自己的目标，才能成功。",
+    "一位老人在海边看到一只海星被冲上岸，他捡起来扔回海里。别人说：“海滩上那么多海星，你救得过来吗？”老人说：“对这只海星来说，我改变了它的命运。”勿以善小而不为。",
+    "一棵大树嘲笑地上的竹子长得慢。后来一场暴风雪来袭，大树被连根拔起，而竹子因为懂得弯腰，毫发无损。柔能克刚，懂得低头是人生的智慧。"
   ],
 
   render() {
@@ -382,8 +484,9 @@ const StoryManager = {
     listEl.innerHTML = '';
     this.stories.forEach((story) => {
       const div = document.createElement('div');
-      div.className = 'list-item news-item';
-      div.innerHTML = `<div class="news-title">📖 ${story.title}</div><div class="news-desc">点击听故事</div>`;
+      div.className = 'list-item';
+      // 修复：在列表直接展示内容前40个字
+      div.innerHTML = `<div class="news-title">📖 ${story.title}</div><div class="news-desc">${story.content}</div>`;
       div.onclick = () => {
         System.speak(story.content);
         System.showDialog(story.title, `<span style="font-size:1rem;color:#333;text-align:left;display:block;line-height:1.6;">${story.content}</span>`);
@@ -397,16 +500,9 @@ const StoryManager = {
     btn.innerHTML = '✨ AI 正在编写新故事...';
     btn.disabled = true;
 
-    let aiText = "";
-    try {
-      const seed = Math.random().toString(36).substring(7);
-      const prompt = `请给老年人讲一个150字左右的、富有哲理的短篇小故事，要通俗易懂，结尾带一句人生哲理。必须每次都不一样。 (随机码:${seed})`;
-      const res = await fetch(`https://api.vvhan.com/api/chat?msg=${encodeURIComponent(prompt)}`, { timeout: 6000 });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.data && data.data.reply) aiText = data.data.reply;
-      }
-    } catch (e) { console.log('AI故事生成失败，启用本地兜底'); }
+    const seed = Math.random().toString(36).substring(7);
+    const prompt = `请给老年人讲一个全新的、150字左右的哲理小故事。要求通俗易懂，结尾必须带一句人生哲理。每次必须完全不一样，不能重复。只回复故事正文。 (验证码:${seed})`;
+    let aiText = await AIService.fetchAI(prompt);
 
     if (!aiText) {
       aiText = this.localAIStories[Math.floor(Math.random() * this.localAIStories.length)];
@@ -423,7 +519,7 @@ const StoryManager = {
   }
 };
 
-/* ================= 5. 音频引擎 ================= */
+/* ================= 6. 音频引擎 ================= */
 const AudioPlayer = {
   isPlaying: false,
   audio: document.getElementById('globalAudio'),
@@ -461,15 +557,8 @@ const AudioPlayer = {
       document.getElementById('timeCurrent').textContent = this.formatTime(this.audio.currentTime); 
       document.getElementById('timeTotal').textContent = this.formatTime(this.audio.duration); 
     });
-    
-    this.audio.addEventListener('ended', () => { 
-      this.isPlaying = false;
-      document.getElementById('playPauseBtn').textContent = '▶'; 
-    });
-
-    this.audio.addEventListener('error', () => {
-      System.toast('该曲目受限，请使用上方“上传本地音乐”功能！');
-    });
+    this.audio.addEventListener('ended', () => { this.isPlaying = false; document.getElementById('playPauseBtn').textContent = '▶'; });
+    this.audio.addEventListener('error', () => { System.toast('该曲目受限，请使用上方“上传本地音乐”功能！'); });
   },
 
   formatTime(sec) { const m = Math.floor(sec / 60); const s = Math.floor(sec % 60); return `${m}:${s < 10 ? '0'+s : s}`; },
@@ -493,103 +582,59 @@ const AudioPlayer = {
     document.getElementById('musicTitle').textContent = name;
     document.getElementById('timeTotal').textContent = '0:00';
     this.audio.src = url;
-    
     this.audio.play().then(() => {
       this.isPlaying = true;
       document.getElementById('playPauseBtn').textContent = '⏸';
       Router.go('p7');
-    }).catch(err => { 
-      System.toast('播放失败，请重试'); 
-    });
+    }).catch(err => { System.toast('播放失败，请重试'); });
   },
 
   togglePlay() {
-    if (this.audio.paused) { 
-      this.audio.play(); 
-      this.isPlaying = true;
-      document.getElementById('playPauseBtn').textContent = '⏸'; 
-    } else { 
-      this.audio.pause(); 
-      this.isPlaying = false;
-      document.getElementById('playPauseBtn').textContent = '▶'; 
-    }
+    if (this.audio.paused) { this.audio.play(); this.isPlaying = true; document.getElementById('playPauseBtn').textContent = '⏸'; } 
+    else { this.audio.pause(); this.isPlaying = false; document.getElementById('playPauseBtn').textContent = '▶'; }
   },
 
-  stop() {
-    this.isPlaying = false;
-    this.audio.pause();
-    this.audio.currentTime = 0;
-    document.getElementById('playPauseBtn').textContent = '▶';
-  },
-
-  seek(val) {
-    if(this.audio.duration) this.audio.currentTime = (val / 100) * this.audio.duration;
-  },
-
-  setVolume(val) {
-    this.audio.volume = val / 100;
-  }
+  stop() { this.isPlaying = false; this.audio.pause(); this.audio.currentTime = 0; document.getElementById('playPauseBtn').textContent = '▶'; },
+  seek(val) { if(this.audio.duration) this.audio.currentTime = (val / 100) * this.audio.duration; },
+  setVolume(val) { this.audio.volume = val / 100; }
 };
 
-/* ================= 6. 联系人管理 (内存驱动，绝对能加) ================= */
+/* ================= 7. 联系人管理 ================= */
 const ContactManager = {
   quickAdd() {
     const nameEl = document.getElementById('quickName');
     const phoneEl = document.getElementById('quickPhone');
     if (!nameEl || !phoneEl) return;
-    
     const name = nameEl.value.trim(); 
     const phone = phoneEl.value.trim(); 
-    
     if(!name) { System.toast('请输入姓名'); return; } 
     if(!phone) { System.toast('请输入手机号'); return; } 
     
-    // 写入内存数据
     Store.contacts.push({ id: Date.now(), name, phone, avatar: "👤" }); 
-    Store.saveContacts(); // 尝试存本地
+    Store.saveContacts(); 
     
-    // 清空输入框
-    nameEl.value = ''; 
-    phoneEl.value = ''; 
-    
-    // 强制重新渲染页面
-    this.render();
-    this.renderManage();
-    System.toast('添加成功'); 
+    nameEl.value = ''; phoneEl.value = ''; 
+    this.render(); this.renderManage(); System.toast('添加成功'); 
   },
 
   edit(id) {
     const target = Store.contacts.find(c => c.id === id);
     if(!target) return;
-
     const newName = prompt("请输入新的姓名：", target.name);
     if(newName === null) return; 
     const newPhone = prompt("请输入新的手机号：", target.phone);
     if(newPhone === null) return;
+    if(!newName.trim() || !newPhone.trim()) { System.toast('不能为空'); return; }
 
-    if(!newName.trim() || !newPhone.trim()) {
-      System.toast('姓名和手机号不能为空');
-      return;
-    }
-
-    target.name = newName.trim();
-    target.phone = newPhone.trim();
-    Store.saveContacts();
-    this.render();
-    this.renderManage();
-    System.toast('修改成功');
+    target.name = newName.trim(); target.phone = newPhone.trim();
+    Store.saveContacts(); this.render(); this.renderManage(); System.toast('修改成功');
   },
   
   delete(id) { 
     if(confirm('确定要删除？')) { 
       Store.contacts = Store.contacts.filter(c => c.id !== id); 
-      if (Store.contacts.length === 0) {
-        Store.contacts = [{ id: Date.now(), name: "家人", phone: "110", avatar: "👤" }];
-      }
-      Store.saveContacts();
-      this.render();
-      this.renderManage();
-      System.toast('已删除');
+      if (Store.contacts.length === 0) Store.contacts = [{ id: Date.now(), name: "家人", phone: "110", avatar: "👤" }];
+      Store.saveContacts(); this.render(); this.renderManage(); System.toast('已删除');
     } 
   },
 
@@ -613,35 +658,61 @@ const ContactManager = {
     const listP14 = document.getElementById('contactList'); 
     if(listP14) listP14.innerHTML = Store.contacts.map(c => `
       <div class="card">
-        <div style="font-weight:600;font-size:1.2rem;">${c.avatar} ${c.name}</div>
-        <div style="color:#666;font-size:0.9rem;margin-bottom:10px;">${c.phone}</div>
-        <button class="btn" onclick="Router.go('p15')">一键视频</button>
+        <div style="font-weight:600;font-size:1.2rem;margin-bottom:10px;">${c.avatar} ${c.name}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" style="flex:1; margin-top:0;" onclick="Router.go('p15')">视频</button>
+          <button class="btn secondary" style="flex:1; margin-top:0;" onclick="FamilyChat.openVoice('${c.name}')">语音</button>
+          <button class="btn secondary" style="flex:1; margin-top:0;" onclick="FamilyChat.openText('${c.name}')">文字</button>
+        </div>
       </div>
     `).join(''); 
   }
 };
 
-/* ================= 7. 生活提醒管理 (内存驱动，绝对能加) ================= */
+/* ================= 8. 生活提醒 (含AI推荐) ================= */
 const ReminderManager = { 
+  localTips: [
+    "喝一杯温开水", "吃降压药", "吃降糖药", "去公园打太极拳", "测量一次血压", 
+    "吃一个苹果", "午休半小时", "吃钙片", "做十分钟眼保健操", "给老朋友打个电话",
+    "泡脚十五分钟", "喝一杯热牛奶", "吃一根香蕉", "做几组深呼吸", "拉伸一下筋骨",
+    "吃维生素片", "看一会儿新闻", "浇浇花", "晒晒太阳", "听听戏曲"
+  ],
+
   saveNew() { 
     const el = document.getElementById('newRemindText'); 
     if (!el) return;
-    
     let text = el.value.trim(); 
-    if(!text) {
-      System.toast('请输入提醒内容');
-      return;
-    }
-    
-    // 写入内存数据
-    Store.reminders.push({ text: "💊 " + text, time: "每天 08:00" }); 
-    Store.saveReminders(); // 尝试存本地
-    
-    el.value = ''; // 清空输入框
-    this.render(); // 强制重新渲染页面
-    Router.go('p9'); // 跳回列表页
+    if(!text) { System.toast('请输入提醒内容'); return; }
+    Store.reminders.push({ text: "💊 " + text, time: "今天" }); 
+    Store.saveReminders(); 
+    el.value = ''; 
+    this.render(); 
+    Router.go('p9'); 
     System.toast('提醒已保存'); 
   }, 
+  
+  async generateAIReminder(btn) {
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '✨ AI 正在思考...';
+    btn.disabled = true;
+
+    const seed = Math.random().toString(36).substring(7);
+    const prompt = `给老年人随机推荐一条简短的生活提醒，比如喝水、吃药、运动、睡觉等。只需回复提醒内容，不超过6个字，不要任何标点符号和解释。 (验证码:${seed})`;
+    let aiText = await AIService.fetchAI(prompt);
+
+    if (!aiText) {
+      aiText = this.localTips[Math.floor(Math.random() * this.localTips.length)];
+    }
+
+    aiText = aiText.replace(/["「」『』。，,.]/g, '').trim();
+    Store.reminders.push({ text: "✨ " + aiText, time: "今天" }); 
+    Store.saveReminders(); 
+    this.render(); 
+    System.toast('已添加AI提醒');
+    
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  },
   
   render() { 
     const listEl = document.getElementById('reminderList'); 
@@ -650,18 +721,16 @@ const ReminderManager = {
   } 
 };
 
-/* ================= 8. SOS 模块 ================= */
+/* ================= 9. SOS 模块 ================= */
 const SOSEngine = { 
   timer: null, 
   start() { 
     let p = 0; 
     const bar = document.getElementById('sosProgress'); 
     this.timer = setInterval(() => { 
-      p += 4; 
-      bar.style.width = p + '%'; 
+      p += 4; bar.style.width = p + '%'; 
       if(p >= 100) { 
-        this.cancel(); 
-        System.speak("正在发送求助信息"); 
+        this.cancel(); System.speak("正在发送求助信息"); 
         System.showDialog("🚨 求助已发送", "已通知紧急联系人，并发送了当前位置。"); 
       } 
     }, 100); 
@@ -669,7 +738,7 @@ const SOSEngine = {
   cancel() { clearInterval(this.timer); document.getElementById('sosProgress').style.width = '0%'; } 
 };
 
-/* ================= 9. 智能路由 ================= */
+/* ================= 10. 路由 ================= */
 const Router = { 
   go(id) { 
     System.stopSpeak(); 
@@ -677,7 +746,6 @@ const Router = {
     const target = document.getElementById(id);
     if(target) target.classList.add('active');
     
-    // 使用 setTimeout 确保 DOM 彻底切换完毕后，再执行数据渲染
     setTimeout(() => {
       try {
         if (id === 'p9') ReminderManager.render();
@@ -685,14 +753,12 @@ const Router = {
         if (id === 'p22') ContactManager.renderManage();
         if (id === 'p_news') NewsManager.init();
         if (id === 'p8') StoryManager.render();
-      } catch (err) {
-        console.error('页面渲染出错', err);
-      }
+      } catch (err) {}
     }, 10);
   } 
 };
 
-/* ================= 10. 语音交互 ================= */
+/* ================= 11. 语音交互 (通用陪伴AI) ================= */
 const VoiceEngine = {
   startRec(e) { if (e) e.preventDefault(); const btn = document.getElementById('talkBtn'); btn.classList.add('recording'); btn.textContent = '🎙️ 正在聆听…'; const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { this.fallbackInput(); this.stopRec(); return; } this.recognition = new SR(); this.recognition.lang = 'zh-CN'; this.recognition.onresult = (ev) => this.handleInput(ev.results[0][0].transcript); try { this.recognition.start(); } catch(e) { this.fallbackInput(); } },
   stopRec() { const btn = document.getElementById('talkBtn'); btn.classList.remove('recording'); btn.textContent = '🎙️ 按住说话'; if (this.recognition) { try { this.recognition.stop(); } catch(e){} this.recognition = null; } },
@@ -703,7 +769,7 @@ const VoiceEngine = {
     const meBubble = document.createElement('div'); meBubble.className = 'bubble me'; meBubble.textContent = text; chatBox.appendChild(meBubble); chatBox.scrollTop = chatBox.scrollHeight;
     const loadBubble = document.createElement('div'); loadBubble.className = 'bubble ai loading'; loadBubble.textContent = '思考中...'; chatBox.appendChild(loadBubble); chatBox.scrollTop = chatBox.scrollHeight;
     
-    const reply = await AIService.ask(text);
+    const reply = await AIService.askMain(text);
     loadBubble.remove();
     
     const aiBubble = document.createElement('div'); aiBubble.className = 'bubble ai'; chatBox.appendChild(aiBubble);
