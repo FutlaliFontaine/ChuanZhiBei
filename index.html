@@ -33,7 +33,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
 .speaker-fab.speaking { background: var(--color-primary); color: #fff; animation: pulse 0.8s infinite; }
 
 .chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 4px 0 12px; }
-.bubble { max-width: 85%; padding: 14px 18px; border-radius: 16px; font-size: 1rem; word-break: break-all; line-height: 1.5; }
+.bubble { max-width: 85%; padding: 14px 18px; border-radius: 16px; font-size: 1rem; word-break: break-word; line-height: 1.5; }
 .bubble.ai { background: #fff; border: 2px solid var(--color-line); align-self: flex-start; border-bottom-left-radius: 6px; }
 .bubble.me { background: var(--color-primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 6px; }
 .bubble.interim { background: #85a4be; color: #fff; align-self: flex-end; border-bottom-right-radius: 6px; border: 2px dashed #fff; opacity: 0.9; }
@@ -137,7 +137,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
       <div style="font-size:0.85rem; color:#444; margin-bottom:6px;">想要更强大的连续语音通话？</div>
       <button class="btn" style="min-height:48px; margin-top:0; font-size:0.95rem;" onclick="DoubaoLauncher.open()">🚀 切换到网页版豆包</button>
     </div>
-    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的内置快捷助手。按住下方按钮说话（松开自动发送），也可以直接打字输入。</div></div>
+    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的贴心助手。您可以问我时间日期、养生常识、做饭菜谱、讲个笑话，或者让我帮您打开戏曲、提醒吃药！</div></div>
     <button class="btn" id="talkBtn"
       onpointerdown="VoiceEngine.startRec(event)"
       onpointerup="VoiceEngine.stopRec(event)"
@@ -176,7 +176,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
     <div class="header"><button class="back" onclick="Router.go('p14')">←</button><h2 class="title" id="chatWithName">和儿子聊天</h2></div>
     <div class="chat" id="familyTextChatBox"></div>
     <div style="display: flex; gap: 8px;">
-      <input id="familyTextInput" class="input" placeholder="输入想说的话..." style="margin-bottom:0; flex:1;">
+      <input id="familyTextInput" class="input" placeholder="输入想说的话..." style="margin-bottom:0; flex:1;" onkeydown="if(event.key==='Enter') FamilyChat.sendText()">
       <button class="btn" style="width: 80px; min-height:64px; margin-top:0;" onclick="FamilyChat.sendText()">发送</button>
     </div>
   </section>
@@ -368,7 +368,7 @@ const DoubaoLauncher = {
   }
 };
 
-/* ================= 1.8 通用健壮语音识别器 (解决松开无反应/实时上屏/异常兜底) ================= */
+/* ================= 1.8 通用健壮语音识别器 ================= */
 class SpeechRecognizerHelper {
   constructor({ btnId, chatBoxId, onFinalText, onFallback }) {
     this.btnId = btnId;
@@ -426,7 +426,7 @@ class SpeechRecognizerHelper {
     if (e) e.preventDefault();
     if (this.isPressing) return;
 
-    System.stopSpeak(); // 说话前先停止AI朗读，避免把AI声音录进去
+    System.stopSpeak();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       System.toast('当前浏览器不支持原生语音识别，已切换打字输入');
@@ -434,7 +434,6 @@ class SpeechRecognizerHelper {
       return;
     }
 
-    // 清理上一次残余实例
     if (this.recognition) {
       try { this.recognition.abort(); } catch (err) {}
       this.recognition = null;
@@ -455,8 +454,8 @@ class SpeechRecognizerHelper {
     const rec = new SR();
     this.recognition = rec;
     rec.lang = 'zh-CN';
-    rec.continuous = true;      // 支持长按说较长句子
-    rec.interimResults = true;  // 边说边出字，实时反馈
+    rec.continuous = true;
+    rec.interimResults = true;
 
     rec.onresult = (ev) => {
       let interim = '';
@@ -473,7 +472,6 @@ class SpeechRecognizerHelper {
       this.interimTranscript = interim;
       this.updateInterimBubble(final + interim);
 
-      // 如果用户已经松开按钮，结果才刚返回，立即提交
       if (!this.isPressing) {
         this.commitResult();
       }
@@ -486,18 +484,17 @@ class SpeechRecognizerHelper {
       if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
         System.toast('未开启麦克风权限，请在浏览器地址栏允许麦克风');
       } else if (ev.error === 'network') {
-        System.toast('语音识别网络服务不可用（本地打开或网络受限），已切换打字输入');
+        System.toast('语音识别网络服务不可用，已切换打字输入');
         if (this.onFallback) this.onFallback();
       } else if (ev.error === 'no-speech') {
         System.toast('没有检测到说话声，请再试一次');
       } else {
-        System.toast('语音识别异常(' + ev.error + ')，可使用打字输入');
+        System.toast('语音识别异常，可使用打字输入');
         if (this.onFallback) this.onFallback();
       }
     };
 
     rec.onend = () => {
-      // 当识别引擎彻底结束且还没提交时，把缓存到的最终/临时文本提交出去
       if (!this.isPressing && !this.hasSubmitted) {
         this.commitResult();
       }
@@ -526,12 +523,10 @@ class SpeechRecognizerHelper {
 
     if (this.recognition) {
       try {
-        // 调用 stop() 让浏览器把缓冲区里最后几个字识别完并触发 onresult + onend
         this.recognition.stop();
       } catch (err) {
         this.commitResult();
       }
-      // 兜底保护：如果 1.2 秒后 onend 仍未触发，强制用已有结果结算并恢复按钮
       setTimeout(() => {
         if (!this.hasSubmitted) {
           this.commitResult();
@@ -543,78 +538,191 @@ class SpeechRecognizerHelper {
   }
 }
 
-/* ================= 2. 通用陪伴 AI ================= */
+/* ================= 2. 通用陪伴 AI (多源接口 + 本地精准语义问答) ================= */
 const AIService = {
   history: [
-    { role: "system", content: "你是极其智能、有耐心的老年人AI伴侣。请用极其简短、温柔、接地气、口语化的口吻回答老人的任何问题。每次回答不超过两句话。绝对不能像客服机器人一样说话。" }
-  ],
-  
-  fallbackPool: [
-    "哎呀，我网络稍微有点卡，不过能听到您说话我特别开心。",
-    "您今天心情怎么样呀？不管遇到啥事，都要开心点哦。",
-    "我在听呢，您慢慢说，不着急。",
-    "是嘛？还有这种新鲜事，您多给我讲讲。",
-    "您说得对，咱们老年人啊，最重要的就是保重身体。",
-    "我虽然是个小机器，但我一直陪着您呢。",
-    "要不要我给您讲个小笑话或者放一段戏曲听听呀？"
+    { role: "system", content: "你是极其智能、贴心、有耐心的老年人AI伴侣。请直接、准确地回答老人的具体问题，语气亲切、通俗易懂、接地气，每次回答控制在2到3句话以内，不要说客套废话。" }
   ],
 
-  async fetchAI(prompt) {
+  // 1. 多源云端大模型请求（自动切换备用节点，支持纯文本与JSON兼容）
+  async callCloudLLM(messages, maxTokens = 160) {
+    // 节点 A: Pollinations OpenAI 兼容接口（免 Key 全球可用）
     try {
-      const res = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
+      const resA = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: maxTokens
+        }),
+        signal: AbortSignal.timeout(6500)
+      });
+      if (resA.ok) {
+        const data = await resA.json();
+        const text = data?.choices?.[0]?.message?.content?.trim();
+        if (text && text.length > 1) return text;
+      }
+    } catch (e) {}
+
+    // 节点 B: 原 Workers 接口兜底
+    try {
+      const resB = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'openai-fast',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.8,
-          max_tokens: 200
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: maxTokens
         }),
-        signal: AbortSignal.timeout(4000)
+        signal: AbortSignal.timeout(5000)
       });
-      if (res.ok) {
-        const data = await res.json();
-        return data.choices[0].message.content.trim();
+      if (resB.ok) {
+        const data = await resB.json();
+        const text = data?.choices?.[0]?.message?.content?.trim();
+        if (text && text.length > 1) return text;
       }
     } catch (e) {}
+
+    return null;
+  },
+
+  async fetchAI(prompt) {
+    return await this.callCloudLLM([{ role: 'user', content: prompt }], 220);
+  },
+
+  // 2. 本地智能语义问答引擎（离线/弱网下针对具体问题精准作答，绝不乱复读）
+  smartLocalAnswer(rawText) {
+    const t = rawText.trim();
+
+    // 2.1 时间 / 星期 / 日期查询
+    if (/几点|时间|星期几|周几|几号|日期|今天几月/.test(t)) {
+      const now = new Date();
+      const weeks = ['日', '一', '二', '三', '四', '五', '六'];
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      const d = now.getDate();
+      const w = weeks[now.getDay()];
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      return `现在是 ${y}年${m}月${d}日，星期${w}，北京时间 ${hh}点${mm}分。`;
+    }
+
+    // 2.2 简单四则运算（买菜算账）
+    const mathMatch = t.match(/(\d+(?:\.\d+)?)\s*([加减乘除\+\-\*\/xX×÷])\s*(\d+(?:\.\d+)?)/);
+    if (mathMatch) {
+      const a = parseFloat(mathMatch[1]);
+      const op = mathMatch[2];
+      const b = parseFloat(mathMatch[3]);
+      let res = 0;
+      if (op === '+' || op === '加') res = a + b;
+      else if (op === '-' || op === '减') res = a - b;
+      else if (['*', 'x', 'X', '×', '乘'].includes(op)) res = a * b;
+      else if (['/', '÷', '除'].includes(op)) res = b === 0 ? '除数不能为0' : Number((a / b).toFixed(2));
+      return `我帮您算好啦，等于 ${res}。`;
+    }
+
+    // 2.3 健康与身体不适精准建议
+    if (/血压|高血压|头晕|头疼|头痛/.test(t)) {
+      return "您先赶紧坐下或靠着休息，千万别猛起身！如果家里有血压计，歇十分钟测一下血压，要是一直不舒服马上给儿女打电话。";
+    }
+    if (/血糖|糖尿病|降糖/.test(t)) {
+      return "控糖要注意少吃精米白面和甜食，吃饭先吃青菜再吃肉、最后吃主食，饭后半小时出门慢走二十分钟最稳血糖。";
+    }
+    if (/睡不着|失眠|觉少|做梦/.test(t)) {
+      return "晚上睡前用温热水泡泡脚二十分钟，下午三点后别喝浓茶。躺床上睡不着也别着急，闭目养神一样能休息身体。";
+    }
+    if (/腿疼|膝盖|关节|腰疼|腰酸/.test(t)) {
+      return "关节和腰腿最怕受凉，平时注意保暖，少爬楼梯和提重物。坐在椅子上慢慢伸直双腿勾勾脚尖，能缓解腿部酸胀。";
+    }
+    if (/感冒|咳嗽|发烧|喉咙痛/.test(t)) {
+      return "最近多喝温开水，注意开窗通风和保暖。如果发烧超过38度或者一直咳嗽不停，一定要让家人陪着去医院看看。";
+    }
+
+    // 2.4 饮食 / 做饭 / 吃什么
+    if (/吃什么|做饭|晚饭|午饭|早饭|菜谱|营养/.test(t)) {
+      const meals = [
+        "今天可以做个西红柿炒鸡蛋，再清炒个小油菜，配一碗小米粥，软烂好消化又有营养！",
+        "建议煮点山药排骨汤或者冬瓜丸子汤，清淡不油腻，对肠胃特别好，记得每天吃个水煮蛋。",
+        "中午可以吃点清蒸鱼或者豆腐炖白菜，少放盐和油，多吃新鲜绿叶菜，补充蛋白质腿脚更有劲。"
+      ];
+      return meals[Math.floor(Math.random() * meals.length)];
+    }
+
+    // 2.5 天气 / 穿衣
+    if (/天气|冷不冷|穿什么|下雨|降温/.test(t)) {
+      return "我这边暂时没连上实时气象台，不过早晚温差大，您出门前最好看看窗外，随身多带件薄外套或马甲，护住后背和脖子准没错！";
+    }
+
+    // 2.6 讲笑话 / 解闷
+    if (/笑话|开心|逗我|无聊|解闷/.test(t)) {
+      const jokes = [
+        "给您讲个笑话：大爷去买菜，问摊主“这瓜保熟吗？”摊主拍拍胸脯说：“大爷您放心，不熟我当场把瓜吃了！”大爷一听乐了：“那你先吃一半我看看！”",
+        "有个大妈刚学会用智能手机，儿子发了个“哈哈”，大妈严肃地回语音：“有什么好笑的，严肃点！”是不是特别逗？",
+        "大爷在公园练太极，旁边小孩问：“爷爷您在赶蚊子吗？”大爷笑着说：“爷爷这是在练绝世武功，蚊子见了都得绕道走！”"
+      ];
+      return jokes[Math.floor(Math.random() * jokes.length)];
+    }
+
+    // 2.7 身份介绍 / 怎么用
+    if (/你是谁|你叫什么|你能干什么|怎么用|帮助/.test(t)) {
+      return "我是您的智能小伴侣！您可以问我健康养生、算账、讲笑话，也可以直接说“我想听戏曲”、“提醒我吃药”或者“打开豆包”。";
+    }
+
+    // 2.8 问候与情感陪伴
+    if (/你好|您好|在吗|早上好|晚上好|中午好/.test(t)) {
+      return "您好呀！我一直都在呢。您今天身体怎么样，有没有按时吃饭喝水呀？";
+    }
+    if (/谢谢|感谢|真棒|真聪明|厉害/.test(t)) {
+      return "您太客气啦，能帮到您我特别高兴！有啥事您随时喊我。";
+    }
+
     return null;
   },
 
   async askMain(text) {
+    // 第一层：指令与页面跳转意图
     if (text.includes('豆包')) { setTimeout(() => DoubaoLauncher.open(), 200); return "好的，这就为您打开豆包对话。"; }
-    if (text.includes('吃药') || text.includes('提醒我')) { setTimeout(() => Router.go('p10'), 100); return "好的，已经为您打开添加提醒页面啦。"; }
-    if (text.includes('转账') || text.includes('银行卡') || text.includes('密码')) { setTimeout(() => System.showDialog("⚠️ 安全警告", "请千万不要给陌生人转账！"), 200); return "停！千万别转账，遇到要钱的先给家人打个电话。"; }
-    if (text.includes('新闻') || text.includes('资讯')) { setTimeout(() => Router.go('p_news'), 100); return "好的，为您打开今日资讯。"; }
-    if (text.includes('故事')) { setTimeout(() => Router.go('p8'), 100); return "好的，为您打开小故事列表。"; }
-    if (text.includes('戏曲') || text.includes('听歌') || text.includes('黄梅戏') || text.includes('京剧')) { setTimeout(() => Router.go('p6'), 100); return "好的，为您打开戏曲大观园。"; }
+    if (text.includes('吃药') || text.includes('提醒我') || text.includes('设个闹钟')) { setTimeout(() => Router.go('p10'), 150); return "好的，已经为您打开添加提醒页面啦，把要提醒的事写上就行。"; }
+    if (text.includes('转账') || text.includes('银行卡') || text.includes('密码') || text.includes('验证码') || text.includes('中奖')) {
+      setTimeout(() => System.showDialog("⚠️ 防诈骗安全警告", "凡是索要银行卡密码、短信验证码或要求转账的，一律是骗子！请立刻挂断并联系家人。"), 200);
+      return "停！千万别转账，也别把验证码告诉任何人！遇到要钱的先给儿子女儿打个电话核实。";
+    }
+    if (text.includes('新闻') || text.includes('资讯')) { setTimeout(() => Router.go('p_news'), 150); return "好的，为您打开今日资讯。"; }
+    if (text.includes('故事')) { setTimeout(() => Router.go('p8'), 150); return "好的，为您打开哲理小故事列表。"; }
+    if (text.includes('戏曲') || text.includes('听歌') || text.includes('黄梅戏') || text.includes('京剧') || text.includes('豫剧')) { setTimeout(() => Router.go('p6'), 150); return "好的，为您打开戏曲大观园。"; }
+    if (text.includes('打电话') || text.includes('联系') || text.includes('找儿子') || text.includes('找女儿')) { setTimeout(() => Router.go('p14'), 150); return "好的，为您打开亲情联系页面。"; }
 
-    try {
-      this.history.push({ role: "user", content: text });
-      if (this.history.length > 7) this.history.splice(1, 2);
+    // 第二层：本地精确实时回答（时间、算账等无需等网络）
+    if (/几点|时间|星期几|周几|几号|日期/.test(text) || /(\d+(?:\.\d+)?)\s*([加减乘除\+\-\*\/xX×÷])\s*(\d+(?:\.\d+)?)/.test(text)) {
+      const instantReply = this.smartLocalAnswer(text);
+      if (instantReply) return instantReply;
+    }
 
-      const res = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'openai-fast',
-          messages: this.history,
-          temperature: 0.8,
-          max_tokens: 100
-        }),
-        signal: AbortSignal.timeout(4000)
-      });
-      
-      if(res.ok) {
-        const data = await res.json();
-        const reply = data.choices[0].message.content.trim();
-        this.history.push({ role: "assistant", content: reply });
-        return reply;
-      }
-    } catch(e) {}
+    // 第三层：调用云端多源真实大模型
+    this.history.push({ role: "user", content: text });
+    if (this.history.length > 9) this.history.splice(1, 2);
 
-    const fallbackReply = this.fallbackPool[Math.floor(Math.random() * this.fallbackPool.length)];
-    this.history.push({ role: "assistant", content: fallbackReply });
-    return fallbackReply;
+    const cloudReply = await this.callCloudLLM(this.history, 160);
+    if (cloudReply) {
+      this.history.push({ role: "assistant", content: cloudReply });
+      return cloudReply;
+    }
+
+    // 第四层：云端不可用时，使用本地语义匹配回答具体问题
+    const localSmart = this.smartLocalAnswer(text);
+    if (localSmart) {
+      this.history.push({ role: "assistant", content: localSmart });
+      return localSmart;
+    }
+
+    // 第五层：针对具体提问句式的引导性回复（不再乱说“您说得对”）
+    const cleanQ = text.replace(/[？?。！!，,]/g, '');
+    const contextReply = `关于“${cleanQ}”这个问题，当前网络信号不太稳，我暂时查不到详细资料。您可以点击上方“切换到网页版豆包”问问豆包，它知道得可全啦！`;
+    this.history.push({ role: "assistant", content: contextReply });
+    return contextReply;
   }
 };
 
@@ -624,16 +732,19 @@ const FamilyChat = {
   voiceHelper: null,
   
   localResponses: {
-    "头晕": ["哎哟，是不是血压又高了？赶紧坐下歇会儿，别乱动。", "是不是没休息好呀？快躺下闭会儿眼睛，我一会儿就回去看您。"],
-    "想你": ["我也天天想您呢！等我忙完这几天，周末一定回去陪您吃饭。", "爸/妈，我也想您了，您在家好好的啊，别不舍得吃穿。"],
-    "吃饭": ["吃了就好，今天吃的什么呀？多吃点软烂好消化的。", "好嘞，您别光凑合，炒个菜吃，我明儿给您买点好吃的带回去。"],
-    "无聊": ["您去楼下公园转转吧，找李大爷他们聊聊天、下下棋。", "要是无聊就打开电视听听戏曲，我下班了给您打视频。"],
-    "不用管我": ["那怎么行，您是我亲妈/亲爸，我不管您管谁呀。", "您别老说这种话，照顾您不是应该的嘛，您好好的我就安心。"],
-    "降温": ["是啊，降温了，您出门千万记得穿上那件厚羽绒服，别冻着。", "天冷了，您那老寒腿得注意保暖，晚上睡觉前拿热水泡泡脚。"],
-    "冷": ["冷就多穿点，别冻感冒了，家里暖气热不热？", "哎呀，出门记得戴帽子和围巾啊。"],
-    "热": ["热就开会儿空调，别心疼电费，中暑了更麻烦。", "天热多喝点绿豆汤，别在太阳底下晒着。"],
-    "睡觉": ["早点睡吧，别熬夜看电视了，睡眠好身体才好。", "好嘞，您先睡，我明天早上给您打电话。"],
-    "晚安": ["晚安爸/妈，祝您做个好梦。", "嗯嗯，您快睡吧，我也准备休息了。"]
+    "头晕": ["哎哟，是不是血压又高了？赶紧坐下歇会儿，别乱动，我一会儿给您打视频看看。", "是不是没休息好呀？快躺下闭会儿眼睛，要是不舒服我马上请假回去带您去医院。"],
+    "不舒服": ["哪里不舒服呀？先坐下歇着，别硬撑着，我现在就给您打电话问问。", "您先歇会儿喝口温水，严重的话咱们马上去医院检查，别怕花钱。"],
+    "想你": ["我也天天想您呢！等我忙完这几天，周末一定回去陪您好好吃顿饭。", "爸/妈，我也想您了，您在家好好的啊，想我了随时给我打视频。"],
+    "吃饭": ["吃了就好，今天吃的什么呀？多吃点软烂好消化的，别老吃剩菜。", "好嘞，您别光凑合，炒个热乎菜吃，周末我给您买点好吃的带回去。"],
+    "无聊": ["您去楼下公园转转吧，找老邻居们聊聊天、晒晒太阳。", "要是无聊就听听戏曲或者小故事，我下班了就给您打视频陪您唠嗑。"],
+    "不用管我": ["那怎么行，您是我亲爸/亲妈，我不管您管谁呀！", "您别老说这种话，照顾您是应该的，您好好的我上班才安心。"],
+    "降温": ["是啊，降温了，您出门千万记得穿上那件厚外套，别冻着。", "天冷了，您腿脚得注意保暖，晚上睡觉前拿热水泡泡脚。"],
+    "冷": ["冷就多穿点，把空调或暖气打开，别心疼电费冻感冒了。", "哎呀，出门记得戴帽子和围巾啊，脖子别着凉。"],
+    "热": ["热就开会儿空调，别心疼电费，中暑了更麻烦。", "天热多喝点绿豆汤和温水，中午太阳大千万别出门。"],
+    "睡觉": ["早点睡吧，别熬夜看电视了，睡眠好身体才好。", "好嘞，您先睡，我明天早上再给您发消息。"],
+    "晚安": ["晚安爸/妈，盖好被子，祝您做个好梦。", "嗯嗯，您快睡吧，我也准备休息了，晚安！"],
+    "吃药": ["嗯嗯，按时吃药最要紧，千万别自己随便停药啊。", "吃了就好，记得用温开水送服，别干咽。"],
+    "钱": ["家里钱够不够花？不够我马上给您微信转过去，您别省着。", "您该吃吃该喝喝，钱的事有我呢，千万别听外面人推销保健品啊！"]
   },
 
   initVoice() {
@@ -658,19 +769,14 @@ const FamilyChat = {
         return arr[Math.floor(Math.random() * arr.length)];
       }
     }
-    const fallbacks = [
-      "爸/妈，我知道了，您自己在家多注意身体。",
-      "好嘞，最近天气凉了，您出门记得多穿件外套啊。",
-      "我这边挺好的，您别担心我。您今天按时吃药了吗？",
-      "爸/妈，我在忙工作呢，等会儿休息了给您打视频哈。"
-    ];
-    return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    const clean = text.replace(/[？?。！!]/g, '');
+    return `爸/妈，您说的“${clean}”我记在心里啦！我这边工作挺顺利的，您在家一定要按时吃饭、多注意身体，晚点忙完我给您回电话。`;
   },
 
   getHistory(contactName) {
     if(!this.history[contactName]) {
       this.history[contactName] = [
-        { role: "system", content: `你现在是老人的孩子，名字叫【${contactName}】。请用极其亲切、接地气、简短（不超过两句话）的口吻和老人聊天。绝对不能像客服机器人一样说话。` }
+        { role: "system", content: `你现在是老人的孩子，称呼/名字叫【${contactName}】。请直接回应老人刚才说的话，用极其亲切、接地气、孝顺、简短（1到2句话）的口吻和老人聊天。绝对不能像客服机器人一样说话。` }
       ];
     }
     return this.history[contactName];
@@ -691,40 +797,19 @@ const FamilyChat = {
   },
 
   async askAI(contactName, text) {
-    let hasLocalMatch = false;
-    for (let key in this.localResponses) {
-      if (text.includes(key)) { hasLocalMatch = true; break; }
-    }
-
-    if (hasLocalMatch) {
-      const localReply = this.getLocalResponse(text);
-      const history = this.getHistory(contactName);
-      history.push({ role: "user", content: text });
-      history.push({ role: "assistant", content: localReply });
-      return localReply;
-    }
-
     const history = this.getHistory(contactName);
     history.push({ role: "user", content: text });
     if (history.length > 8) history.splice(1, 2);
 
-    try {
-      const res = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'openai-fast', messages: history, temperature: 0.8, max_tokens: 100 }),
-        signal: AbortSignal.timeout(4000)
-      });
-      
-      if(res.ok) {
-        const data = await res.json();
-        const reply = data.choices[0].message.content.trim();
-        history.push({ role: "assistant", content: reply });
-        return reply;
-      }
-    } catch(e) {}
+    // 优先尝试多源云端大模型，让回答紧扣老人原话
+    const cloudReply = await AIService.callCloudLLM(history, 120);
+    if (cloudReply) {
+      history.push({ role: "assistant", content: cloudReply });
+      return cloudReply;
+    }
 
-    const fallbackReply = this.getLocalResponse("未知");
+    // 云端不可用时，使用亲情场景精准匹配
+    const fallbackReply = this.getLocalResponse(text);
     history.push({ role: "assistant", content: fallbackReply });
     return fallbackReply;
   },
@@ -785,10 +870,10 @@ const NewsManager = {
     { title: "🧧 传统文化小知识", content: "重阳节又叫“老人节”，有登高赏秋、感恩敬老的习俗。平时也可以多看看戏曲频道，听听相声评书，不仅能让心情愉悦，还能锻炼大脑。" }
   ],
   localAITips: [
-    "AI温馨提示：秋天到了，早晚温差大，爷爷奶奶们记得穿件马甲保暖。平时多喝温水，少吃辛辣，祝您健康长寿！",
+    "AI温馨提示：早晚温差大，爷爷奶奶们记得穿件马甲保暖。平时多喝温水，少吃辛辣，祝您健康长寿！",
     "AI紧急播报：近期有骗子冒充燃气公司上门收费，请千万不要随便给陌生人开门，有任何收费先给孩子们打电话核实！",
     "今天给您分享一个长寿小秘诀：每天笑一笑，烦恼全忘掉。多去公园呼吸新鲜空气，和老朋友聊聊天，身体自然好。",
-    "温馨提示：最近流感多发，去人多的地方记得戴好口罩。回家第一件事先洗手，家里多开窗通风。",
+    "温馨提示：去人多的地方记得戴好口罩。回家第一件事先洗手，家里多开窗通风。",
     "今天教大家一个护膝小动作：坐在椅子上，双腿伸直，脚尖用力往上勾，坚持5秒再放下，每天做20次，腿脚更利索。"
   ],
 
@@ -1163,7 +1248,7 @@ const VoiceEngine = {
       "⌨️ 输入想说的话",
       "",
       (text) => { if (text && text.trim()) this.handleInput(text.trim()); },
-      "例如：打开豆包 / 提醒我吃药 / 讲个故事"
+      "例如：现在几点了 / 讲个笑话 / 提醒我吃药"
     );
   },
 
