@@ -27,7 +27,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
 .row .btn { margin-top: 0; flex: 1; }
 .center { flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .input { width: 100%; height: 64px; border-radius: 16px; border: 2px solid var(--color-line); padding: 0 18px; font-size: 1rem; outline: none; margin-bottom: 12px; }
-.fab { position: absolute; right: 16px; bottom: 110px; width: 72px; height: 72px; border-radius: 50%; background: var(--color-primary); color: #fff; font-size: 1.5rem; border: 4px solid #fff; box-shadow: 0 6px 16px rgba(0,0,0,0.28); display: flex; align-items: center; justify-content: center; z-index: 30; animation: pulse 2s infinite; }
+.fab { position: absolute; right: 16px; bottom: 110px; width: 72px; height: 72px; border-radius: 50%; background: var(--color-primary); color: #fff; font-size: 1.5rem; border: 4px solid #fff; box-shadow: 0 6px 16px rgba(0,0,0,0.28); display: flex; align-items: center; justify-content: center; z-index: 30; animation: pulse 2s infinite; cursor: pointer; }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 .speaker-fab { position: absolute; right: 14px; top: 14px; width: 56px; height: 56px; border-radius: 16px; border: 2px solid var(--color-line); background: #fff; font-size: 1.5rem; z-index: 40; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .speaker-fab.speaking { background: var(--color-primary); color: #fff; animation: pulse 0.8s infinite; }
@@ -65,7 +65,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
   <audio id="globalAudio"></audio>
 
   <section class="screen active" id="p1" data-read="老年人智能伴侣。贴心陪伴，守护长辈平安。">
-    <div class="center"><div style="font-size:4rem;text-align:center;">👵</div><h1 style="font-size:1.6rem;text-align:center;margin:20px 0 10px;">老年人智能伴侣</h1><p style="text-align:center;color:#777;">真实AI对话 · 秒回版</p></div>
+    <div class="center"><div style="font-size:4rem;text-align:center;">👵</div><h1 style="font-size:1.6rem;text-align:center;margin:20px 0 10px;">老年人智能伴侣</h1><p style="text-align:center;color:#777;">豆包AI联动 · 贴心守护版</p></div>
     <button class="btn" onclick="Router.go('p3'); System.speak('欢迎使用智能伴侣')">开始使用</button>
   </section>
 
@@ -77,12 +77,17 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
     <button class="btn danger" onclick="Router.go('p19')">🚨 紧急求助</button>
     <div style="flex:1"></div>
     <button class="btn ghost" onclick="Router.go('p21')">⚙ 个人设置</button>
-    <button class="fab" onclick="Router.go('p5'); setTimeout(()=>System.speak('我在呢，请按住说话'), 300)">🎙️</button>
+    <button class="fab" title="直达豆包语音" onclick="DoubaoLauncher.open()">🎙️</button>
   </section>
 
-  <section class="screen" id="p4" data-read="语音陪伴。">
+  <section class="screen" id="p4" data-read="语音陪伴。您可以打开豆包聊聊天，或者听新闻、听戏曲、听故事。">
     <div class="header"><button class="back" onclick="Router.go('p3')">←</button><h2 class="title">🎙️ 语音陪伴</h2></div>
-    <div class="card"><b>和 AI 聊聊天</b><br><button class="btn" style="margin-top:10px;" onclick="Router.go('p5')">开始对话</button></div>
+    <div class="card" style="border-color: var(--color-primary); background: #F4F8FB;">
+      <b>🤖 和豆包 AI 聊聊天</b>
+      <p style="font-size:0.85rem; color:#555; margin-top:6px;">跳转至豆包官方对话界面，支持实时语音连麦</p>
+      <button class="btn" style="margin-top:10px;" onclick="DoubaoLauncher.open()">打开豆包对话</button>
+      <button class="btn secondary" style="min-height:52px; font-size:0.95rem; margin-top:8px;" onclick="Router.go('p5')">使用内置本地助手</button>
+    </div>
     <div class="card"><b>听新闻资讯</b><br><button class="btn" style="margin-top:10px; background:#d68b45;" onclick="Router.go('p_news')">📰 听今日资讯</button></div>
     <div class="card"><b>听戏曲老歌</b><br><button class="btn" style="margin-top:10px;" onclick="Router.go('p6')">戏曲大观园</button></div>
     <div class="card"><b>听哲理小故事</b><br><button class="btn" style="margin-top:10px;" onclick="Router.go('p8')">📖 趣味小故事</button></div>
@@ -125,9 +130,13 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
     <button class="btn secondary" onclick="System.stopSpeak(); toast('已停止朗读')">⏹ 停止朗读</button>
   </section>
 
-  <section class="screen" id="p5" data-read="语音对话。按住下方按钮说话。">
-    <div class="header"><button class="back" onclick="Router.go('p4')">←</button><h2 class="title">AI 语音对话</h2></div>
-    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的智能小助手。您可以按住下方按钮对我说：“提醒我吃药”、“我想听黄梅戏”或者随便和我聊聊。</div></div>
+  <section class="screen" id="p5" data-read="内置语音助手。按住下方按钮说话。">
+    <div class="header"><button class="back" onclick="Router.go('p4')">←</button><h2 class="title">内置语音助手</h2></div>
+    <div class="card" style="padding:12px; margin-bottom:10px; background:#F4F8FB; border-color:var(--color-primary);">
+      <div style="font-size:0.85rem; color:#444; margin-bottom:6px;">想要更强大的连续语音通话？</div>
+      <button class="btn" style="min-height:48px; margin-top:0; font-size:0.95rem;" onclick="DoubaoLauncher.open()">🚀 切换到网页版豆包</button>
+    </div>
+    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的内置快捷助手。您可以对我说：“提醒我吃药”、“我想听黄梅戏”，或点击上方按钮直接前往豆包聊天。</div></div>
     <button class="btn" id="talkBtn" onmousedown="VoiceEngine.startRec(event)" onmouseup="VoiceEngine.stopRec(event)" onmouseleave="VoiceEngine.stopRec(event)" ontouchstart="VoiceEngine.startRec(event)" ontouchend="VoiceEngine.stopRec(event)">🎙️ 按住说话</button>
     <button class="btn secondary" style="min-height:50px; font-size:0.9rem; margin-top:8px;" onclick="VoiceEngine.fallbackInput()">键盘打字输入 (测试)</button>
   </section>
@@ -309,13 +318,38 @@ const System = {
   }
 };
 
-/* ================= 2. 通用陪伴 AI (真实大模型，无死板拦截) ================= */
+/* ================= 1.5 豆包网页版跳转器 (方案三核心) ================= */
+const DoubaoLauncher = {
+  url: 'https://www.doubao.com/chat/',
+  open() {
+    System.speak('正在为您打开豆包智能对话，聊完关闭页面就能回来啦');
+    const overlay = document.getElementById('overlay');
+    overlay.innerHTML = `
+      <div class="dialog">
+        <h3>🤖 即将打开豆包 AI</h3>
+        <p style="line-height:1.6;">已为您准备好豆包对话窗口。<br>在豆包页面点击右下角<b>“电话/麦克风”</b>即可直接语音聊天。<br><span style="color:#d64545;font-size:0.9rem;">注意：不要向陌生人或 AI 透露银行卡密码。</span></p>
+        <button class="btn" onclick="DoubaoLauncher.launchNow()">立即前往豆包</button>
+        <button class="btn secondary" onclick="document.getElementById('overlay').classList.remove('show')">先不去了</button>
+      </div>
+    `;
+    overlay.classList.add('show');
+  },
+  launchNow() {
+    document.getElementById('overlay').classList.remove('show');
+    const win = window.open(this.url, '_blank', 'noopener,noreferrer');
+    if (!win) {
+      // 如果浏览器拦截了新标签页弹窗，则在当前窗口跳转
+      window.location.href = this.url;
+    }
+  }
+};
+
+/* ================= 2. 通用陪伴 AI (保留作为内置快捷指令与兜底引擎) ================= */
 const AIService = {
   history: [
     { role: "system", content: "你是极其智能、有耐心的老年人AI伴侣。请用极其简短、温柔、接地气、口语化的口吻回答老人的任何问题。每次回答不超过两句话。绝对不能像客服机器人一样说话。" }
   ],
   
-  // 丰富多彩的本地兜底库（应对断网情况）
   fallbackPool: [
     "哎呀，我网络稍微有点卡，不过能听到您说话我特别开心。",
     "您今天心情怎么样呀？不管遇到啥事，都要开心点哦。",
@@ -326,18 +360,38 @@ const AIService = {
     "要不要我给您讲个小笑话或者放一段戏曲听听呀？"
   ],
 
+  async fetchAI(prompt) {
+    try {
+      const res = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai-fast',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.8,
+          max_tokens: 200
+        }),
+        signal: AbortSignal.timeout(4000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.choices[0].message.content.trim();
+      }
+    } catch (e) {}
+    return null;
+  },
+
   async askMain(text) {
-    // 【系统功能拦截】—— 只有这几个特定指令会触发页面跳转，其余全部交给大模型
+    if (text.includes('豆包')) { setTimeout(() => DoubaoLauncher.open(), 200); return "好的，这就为您打开豆包对话。"; }
     if (text.includes('吃药') || text.includes('提醒我')) { setTimeout(() => Router.go('p10'), 100); return "好的，已经为您打开添加提醒页面啦。"; }
     if (text.includes('转账') || text.includes('银行卡') || text.includes('密码')) { setTimeout(() => System.showDialog("⚠️ 安全警告", "请千万不要给陌生人转账！"), 200); return "停！千万别转账，遇到要钱的先给家人打个电话。"; }
     if (text.includes('新闻') || text.includes('资讯')) { setTimeout(() => Router.go('p_news'), 100); return "好的，为您打开今日资讯。"; }
     if (text.includes('故事')) { setTimeout(() => Router.go('p8'), 100); return "好的，为您打开小故事列表。"; }
     if (text.includes('戏曲') || text.includes('听歌') || text.includes('黄梅戏') || text.includes('京剧')) { setTimeout(() => Router.go('p6'), 100); return "好的，为您打开戏曲大观园。"; }
 
-    // 【真实大模型请求】
     try {
       this.history.push({ role: "user", content: text });
-      if (this.history.length > 7) this.history.splice(1, 2); // 保留最近3轮
+      if (this.history.length > 7) this.history.splice(1, 2);
 
       const res = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
         method: 'POST',
@@ -348,7 +402,7 @@ const AIService = {
           temperature: 0.8,
           max_tokens: 100
         }),
-        signal: AbortSignal.timeout(4000) // 4秒超时保护
+        signal: AbortSignal.timeout(4000)
       });
       
       if(res.ok) {
@@ -361,18 +415,16 @@ const AIService = {
       console.log('大模型接口超时，使用本地兜底');
     }
 
-    // 如果接口超时，从兜底库随机抽一句
     const fallbackReply = this.fallbackPool[Math.floor(Math.random() * this.fallbackPool.length)];
     this.history.push({ role: "assistant", content: fallbackReply });
     return fallbackReply;
   }
 };
 
-/* ================= 3. 亲情聊天引擎 (极致秒回 + 真实上下文) ================= */
+/* ================= 3. 亲情聊天引擎 ================= */
 const FamilyChat = {
   history: {}, 
   
-  // 毫秒级共情库：解决第三方接口慢、回复不接地气的问题
   localResponses: {
     "头晕": ["哎哟，是不是血压又高了？赶紧坐下歇会儿，别乱动。", "是不是没休息好呀？快躺下闭会儿眼睛，我一会儿就回去看您。"],
     "想你": ["我也天天想您呢！等我忙完这几天，周末一定回去陪您吃饭。", "爸/妈，我也想您了，您在家好好的啊，别不舍得吃穿。"],
@@ -426,7 +478,6 @@ const FamilyChat = {
   },
 
   async askAI(contactName, text) {
-    // 【核心秒回修复】：只要本地匹配到关键词，直接瞬间返回，绝不等待网络！
     let hasLocalMatch = false;
     for (let key in this.localResponses) {
       if (text.includes(key)) {
@@ -440,10 +491,9 @@ const FamilyChat = {
       const history = this.getHistory(contactName);
       history.push({ role: "user", content: text });
       history.push({ role: "assistant", content: localReply });
-      return localReply; // 0秒极速返回
+      return localReply;
     }
 
-    // 如果本地没匹配上，才走真实大模型请求
     const history = this.getHistory(contactName);
     history.push({ role: "user", content: text });
     if (history.length > 8) history.splice(1, 2);
@@ -890,11 +940,11 @@ const Router = {
   } 
 };
 
-/* ================= 11. 语音交互 (通用陪伴AI) ================= */
+/* ================= 11. 语音交互 (内置快捷助手) ================= */
 const VoiceEngine = {
   startRec(e) { if (e) e.preventDefault(); const btn = document.getElementById('talkBtn'); btn.classList.add('recording'); btn.textContent = '🎙️ 正在聆听…'; const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) { this.fallbackInput(); this.stopRec(); return; } this.recognition = new SR(); this.recognition.lang = 'zh-CN'; this.recognition.onresult = (ev) => this.handleInput(ev.results[0][0].transcript); try { this.recognition.start(); } catch(e) { this.fallbackInput(); } },
   stopRec() { const btn = document.getElementById('talkBtn'); btn.classList.remove('recording'); btn.textContent = '🎙️ 按住说话'; if (this.recognition) { try { this.recognition.stop(); } catch(e){} this.recognition = null; } },
-  fallbackInput() { setTimeout(() => { const text = prompt("【兜底输入】请输入内容：\n例如：今天天气怎么样 / 给我讲个笑话"); if (text) this.handleInput(text); }, 300); },
+  fallbackInput() { setTimeout(() => { const text = prompt("【兜底输入】请输入内容：\n例如：打开豆包 / 提醒我吃药 / 给我讲个笑话"); if (text) this.handleInput(text); }, 300); },
   async handleInput(text) {
     if (!text.trim()) return;
     const chatBox = document.getElementById('chatBox');
