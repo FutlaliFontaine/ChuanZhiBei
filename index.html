@@ -36,9 +36,12 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
 .bubble { max-width: 85%; padding: 14px 18px; border-radius: 16px; font-size: 1rem; word-break: break-word; line-height: 1.5; }
 .bubble.ai { background: #fff; border: 2px solid var(--color-line); align-self: flex-start; border-bottom-left-radius: 6px; }
 .bubble.me { background: var(--color-primary); color: #fff; align-self: flex-end; border-bottom-right-radius: 6px; }
-.bubble.interim { background: #85a4be; color: #fff; align-self: flex-end; border-bottom-right-radius: 6px; border: 2px dashed #fff; opacity: 0.9; }
+.bubble.interim { background: #5a89b0; color: #fff; align-self: flex-end; border-bottom-right-radius: 6px; border: 2px dashed #fff; }
 .bubble.loading { color: #7a7a7a; font-style: italic; }
 #talkBtn.recording, #familyTalkBtn.recording { background: var(--color-danger); animation: pulse 0.8s infinite; }
+
+.vol-meter { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; margin-left: 8px; vertical-align: middle; }
+.vol-bar { width: 4px; background: #9ef0a2; border-radius: 2px; transition: height 0.08s; height: 4px; }
 
 .music-cover { width: 120px; height: 120px; background: #EBF1F5; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center; font-size: 4rem; animation: spin 10s linear infinite; }
 @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -51,7 +54,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
 .dialog h3 { margin-bottom: 12px; font-size: 1.2rem; }
 .dialog p { margin-bottom: 20px; font-size: 1rem; color: #555; }
 .dialog .input { margin-bottom: 16px; text-align: left; }
-.toast { position: absolute; left: 50%; bottom: 130px; transform: translateX(-50%); background: rgba(34,34,34,0.92); color: #fff; font-size: 0.95rem; padding: 14px 20px; border-radius: 16px; z-index: 60; text-align: center; max-width: 90%; line-height: 1.4; }
+.toast { position: absolute; left: 50%; bottom: 130px; transform: translateX(-50%); background: rgba(34,34,34,0.94); color: #fff; font-size: 0.92rem; padding: 14px 20px; border-radius: 16px; z-index: 60; text-align: center; max-width: 92%; line-height: 1.45; }
 
 .list-item { display: flex; flex-direction: column; align-items: flex-start; background: #fff; border: 2px solid var(--color-line); border-radius: 16px; padding: 16px; margin-bottom: 14px; cursor: pointer; gap: 8px; }
 .news-title { font-weight: 600; font-size: 1.1rem; color: var(--color-text); }
@@ -137,7 +140,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
       <div style="font-size:0.85rem; color:#444; margin-bottom:6px;">想要更强大的连续语音通话？</div>
       <button class="btn" style="min-height:48px; margin-top:0; font-size:0.95rem;" onclick="DoubaoLauncher.open()">🚀 切换到网页版豆包</button>
     </div>
-    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的贴心助手。您可以问我时间日期、养生常识、做饭菜谱、讲个笑话，或者让我帮您打开戏曲、提醒吃药！</div></div>
+    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的贴心助手。按住下方按钮说话（看到声浪跳动再松开），也可以点下方打字输入！</div></div>
     <button class="btn" id="talkBtn"
       onpointerdown="VoiceEngine.startRec(event)"
       onpointerup="VoiceEngine.stopRec(event)"
@@ -266,13 +269,13 @@ Store.init();
 
 /* ================= 1. 系统基础能力 ================= */
 const System = {
-  toast(msg) {
+  toast(msg, duration = 3000) {
     document.querySelectorAll('.toast').forEach(el => el.remove());
     const t = document.createElement('div');
     t.className = 'toast';
     t.textContent = msg;
     document.getElementById('phone').appendChild(t);
-    setTimeout(() => t.remove(), 2600);
+    setTimeout(() => t.remove(), duration);
   },
   speak(text) {
     if (!window.speechSynthesis) return;
@@ -368,19 +371,29 @@ const DoubaoLauncher = {
   }
 };
 
-/* ================= 1.8 通用健壮语音识别器 ================= */
+/* ================= 1.8 通用健壮语音识别器 (带真实麦克风音量检测与声浪指示) ================= */
 class SpeechRecognizerHelper {
   constructor({ btnId, chatBoxId, onFinalText, onFallback }) {
     this.btnId = btnId;
     this.chatBoxId = chatBoxId;
     this.onFinalText = onFinalText;
     this.onFallback = onFallback;
+
     this.recognition = null;
     this.isPressing = false;
+    this.pressStartTime = 0;
     this.finalTranscript = '';
     this.interimTranscript = '';
     this.hasSubmitted = false;
     this.interimBubble = null;
+    this.lastError = '';
+
+    // 实时音量检测相关
+    this.mediaStream = null;
+    this.audioCtx = null;
+    this.rafId = null;
+    this.maxVolume = 0;
+    this.currentVolume = 0;
   }
 
   getBtn() { return document.getElementById(this.btnId); }
@@ -406,24 +419,137 @@ class SpeechRecognizerHelper {
       this.interimBubble.className = 'bubble interim';
       box.appendChild(this.interimBubble);
     }
-    this.interimBubble.textContent = text ? `🎙️ ${text}` : '🎙️ 请说话，正在听…';
+    const v = this.currentVolume;
+    const h1 = Math.max(4, Math.min(16, Math.round(v * 0.4)));
+    const h2 = Math.max(4, Math.min(16, Math.round(v * 0.7)));
+    const h3 = Math.max(4, Math.min(16, Math.round(v * 0.5)));
+    const meterHtml = `<span class="vol-meter"><span class="vol-bar" style="height:${h1}px"></span><span class="vol-bar" style="height:${h2}px"></span><span class="vol-bar" style="height:${h3}px"></span></span>`;
+
+    if (text) {
+      this.interimBubble.innerHTML = `🎙️ ${text}${meterHtml}`;
+    } else {
+      const tip = this.maxVolume >= 2 ? '正在收音，请继续说…' : '麦克风已就绪，请靠近说话…';
+      this.interimBubble.innerHTML = `🎙️ ${tip}${meterHtml}`;
+    }
     box.scrollTop = box.scrollHeight;
+  }
+
+  async startVolumeMonitor() {
+    this.maxVolume = 0;
+    this.currentVolume = 0;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
+      if (!this.isPressing) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      this.mediaStream = stream;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+
+      const ctx = new AudioCtx();
+      this.audioCtx = ctx;
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!this.isPressing) return;
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const val = (dataArray[i] - 128) / 128;
+          sum += val * val;
+        }
+        const rms = Math.sqrt(sum / dataArray.length) * 100;
+        this.currentVolume = rms;
+        if (rms > this.maxVolume) this.maxVolume = rms;
+
+        if (!this.finalTranscript && !this.interimTranscript) {
+          this.updateInterimBubble('');
+        }
+        this.rafId = requestAnimationFrame(tick);
+      };
+      this.rafId = requestAnimationFrame(tick);
+    } catch (err) {
+      if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+        this.lastError = 'not-allowed';
+      } else if (err && err.name === 'NotFoundError') {
+        this.lastError = 'audio-capture';
+      }
+    }
+  }
+
+  stopVolumeMonitor() {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(t => t.stop());
+      this.mediaStream = null;
+    }
+    if (this.audioCtx) {
+      try { this.audioCtx.close(); } catch (e) {}
+      this.audioCtx = null;
+    }
   }
 
   commitResult() {
     if (this.hasSubmitted) return;
+    this.hasSubmitted = true;
+    this.stopVolumeMonitor();
+
     const text = (this.finalTranscript || this.interimTranscript).trim();
+    const peakVol = this.maxVolume;
+    const err = this.lastError;
     this.resetUI();
+
     if (text) {
-      this.hasSubmitted = true;
       this.onFinalText(text);
-    } else {
-      System.toast('没有听清声音，请靠近麦克风再试或直接打字');
+      return;
     }
+
+    // 精确诊断为什么没转出文字
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
+      System.toast('未允许麦克风权限！请点击浏览器地址栏左侧小锁允许麦克风', 3600);
+      return;
+    }
+    if (err === 'audio-capture') {
+      System.toast('未检测到麦克风设备，请检查耳机或电脑麦克风连接', 3600);
+      if (this.onFallback) this.onFallback();
+      return;
+    }
+    if (peakVol < 1.5 && navigator.mediaDevices) {
+      System.toast('麦克风没有检测到声音！请检查系统麦克风是否静音或调大麦克风音量', 3800);
+      return;
+    }
+
+    // 麦克风确实收到了声音(peakVol >= 1.5)，但语音识别云端无返回（国内网络或本地 file:// 打开常见）
+    const isLocalFile = window.location.protocol === 'file:';
+    if (isLocalFile) {
+      System.toast('麦克风已收到声音，但直接双击打开HTML时浏览器会限制云端语音识别，已切换打字输入', 4200);
+    } else {
+      System.toast('麦克风已收到声音，但浏览器语音转文字服务连接超时，已为您切换打字输入', 4000);
+    }
+    if (this.onFallback) this.onFallback();
   }
 
   start(e) {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      try {
+        if (e.target && e.pointerId !== undefined) {
+          e.target.setPointerCapture(e.pointerId);
+        }
+      } catch (err) {}
+    }
     if (this.isPressing) return;
 
     System.stopSpeak();
@@ -440,22 +566,33 @@ class SpeechRecognizerHelper {
     }
 
     this.isPressing = true;
+    this.pressStartTime = Date.now();
     this.finalTranscript = '';
     this.interimTranscript = '';
     this.hasSubmitted = false;
+    this.lastError = '';
 
     const btn = this.getBtn();
     if (btn) {
       btn.classList.add('recording');
-      btn.textContent = '🎙️ 正在聆听，松开发送…';
+      btn.textContent = '⏳ 正在开启麦克风…';
     }
     this.updateInterimBubble('');
 
+    // 1. 先配置并启动 SpeechRecognition（单句模式响应更快）
     const rec = new SR();
     this.recognition = rec;
     rec.lang = 'zh-CN';
-    rec.continuous = true;
+    rec.continuous = false;
     rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    rec.onaudiostart = () => {
+      if (this.isPressing) {
+        const b = this.getBtn();
+        if (b) b.textContent = '🔴 正在听您说话，松开发送';
+      }
+    };
 
     rec.onresult = (ev) => {
       let interim = '';
@@ -472,25 +609,17 @@ class SpeechRecognizerHelper {
       this.interimTranscript = interim;
       this.updateInterimBubble(final + interim);
 
-      if (!this.isPressing) {
+      if (!this.isPressing && (final || interim)) {
         this.commitResult();
       }
     };
 
     rec.onerror = (ev) => {
-      this.isPressing = false;
-      this.resetUI();
       if (ev.error === 'aborted') return;
+      this.lastError = ev.error;
       if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
-        System.toast('未开启麦克风权限，请在浏览器地址栏允许麦克风');
-      } else if (ev.error === 'network') {
-        System.toast('语音识别网络服务不可用，已切换打字输入');
-        if (this.onFallback) this.onFallback();
-      } else if (ev.error === 'no-speech') {
-        System.toast('没有检测到说话声，请再试一次');
-      } else {
-        System.toast('语音识别异常，可使用打字输入');
-        if (this.onFallback) this.onFallback();
+        this.isPressing = false;
+        this.commitResult();
       }
     };
 
@@ -505,15 +634,41 @@ class SpeechRecognizerHelper {
     } catch (err) {
       this.isPressing = false;
       this.resetUI();
-      System.toast('启动麦克风失败，请改用打字输入');
+      System.toast('启动语音识别失败，请改用打字输入');
       if (this.onFallback) this.onFallback();
+      return;
     }
+
+    // 2. 启动独立麦克风音量监测，实时判断硬件是否有声音进入
+    this.startVolumeMonitor();
   }
 
   stop(e) {
-    if (e) e.preventDefault();
+    if (e) {
+      e.preventDefault();
+      try {
+        if (e.target && e.pointerId !== undefined && e.target.hasPointerCapture(e.pointerId)) {
+          e.target.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) {}
+    }
     if (!this.isPressing) return;
     this.isPressing = false;
+    this.stopVolumeMonitor();
+
+    const holdDuration = Date.now() - this.pressStartTime;
+    const hasAnyText = Boolean((this.finalTranscript || this.interimTranscript).trim());
+
+    // 如果只是轻点了一下（小于 450 毫秒）且还没识别出字，提醒长按
+    if (holdDuration < 450 && !hasAnyText) {
+      this.hasSubmitted = true;
+      if (this.recognition) {
+        try { this.recognition.abort(); } catch (err) {}
+      }
+      this.resetUI();
+      System.toast('按住时间太短啦！请按住按钮不放，说完再松开', 3000);
+      return;
+    }
 
     const btn = this.getBtn();
     if (btn) {
@@ -527,13 +682,14 @@ class SpeechRecognizerHelper {
       } catch (err) {
         this.commitResult();
       }
+      // 最多等待 1.8 秒让识别引擎返回最后结果
       setTimeout(() => {
         if (!this.hasSubmitted) {
           this.commitResult();
         }
-      }, 1200);
+      }, 1800);
     } else {
-      this.resetUI();
+      this.commitResult();
     }
   }
 }
@@ -544,9 +700,7 @@ const AIService = {
     { role: "system", content: "你是极其智能、贴心、有耐心的老年人AI伴侣。请直接、准确地回答老人的具体问题，语气亲切、通俗易懂、接地气，每次回答控制在2到3句话以内，不要说客套废话。" }
   ],
 
-  // 1. 多源云端大模型请求（自动切换备用节点，支持纯文本与JSON兼容）
   async callCloudLLM(messages, maxTokens = 160) {
-    // 节点 A: Pollinations OpenAI 兼容接口（免 Key 全球可用）
     try {
       const resA = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
@@ -566,7 +720,6 @@ const AIService = {
       }
     } catch (e) {}
 
-    // 节点 B: 原 Workers 接口兜底
     try {
       const resB = await fetch('https://keylessai.thryx.workers.dev/v1/chat/completions', {
         method: 'POST',
@@ -593,11 +746,9 @@ const AIService = {
     return await this.callCloudLLM([{ role: 'user', content: prompt }], 220);
   },
 
-  // 2. 本地智能语义问答引擎（离线/弱网下针对具体问题精准作答，绝不乱复读）
   smartLocalAnswer(rawText) {
     const t = rawText.trim();
 
-    // 2.1 时间 / 星期 / 日期查询
     if (/几点|时间|星期几|周几|几号|日期|今天几月/.test(t)) {
       const now = new Date();
       const weeks = ['日', '一', '二', '三', '四', '五', '六'];
@@ -610,7 +761,6 @@ const AIService = {
       return `现在是 ${y}年${m}月${d}日，星期${w}，北京时间 ${hh}点${mm}分。`;
     }
 
-    // 2.2 简单四则运算（买菜算账）
     const mathMatch = t.match(/(\d+(?:\.\d+)?)\s*([加减乘除\+\-\*\/xX×÷])\s*(\d+(?:\.\d+)?)/);
     if (mathMatch) {
       const a = parseFloat(mathMatch[1]);
@@ -624,7 +774,6 @@ const AIService = {
       return `我帮您算好啦，等于 ${res}。`;
     }
 
-    // 2.3 健康与身体不适精准建议
     if (/血压|高血压|头晕|头疼|头痛/.test(t)) {
       return "您先赶紧坐下或靠着休息，千万别猛起身！如果家里有血压计，歇十分钟测一下血压，要是一直不舒服马上给儿女打电话。";
     }
@@ -641,7 +790,6 @@ const AIService = {
       return "最近多喝温开水，注意开窗通风和保暖。如果发烧超过38度或者一直咳嗽不停，一定要让家人陪着去医院看看。";
     }
 
-    // 2.4 饮食 / 做饭 / 吃什么
     if (/吃什么|做饭|晚饭|午饭|早饭|菜谱|营养/.test(t)) {
       const meals = [
         "今天可以做个西红柿炒鸡蛋，再清炒个小油菜，配一碗小米粥，软烂好消化又有营养！",
@@ -651,12 +799,10 @@ const AIService = {
       return meals[Math.floor(Math.random() * meals.length)];
     }
 
-    // 2.5 天气 / 穿衣
     if (/天气|冷不冷|穿什么|下雨|降温/.test(t)) {
       return "我这边暂时没连上实时气象台，不过早晚温差大，您出门前最好看看窗外，随身多带件薄外套或马甲，护住后背和脖子准没错！";
     }
 
-    // 2.6 讲笑话 / 解闷
     if (/笑话|开心|逗我|无聊|解闷/.test(t)) {
       const jokes = [
         "给您讲个笑话：大爷去买菜，问摊主“这瓜保熟吗？”摊主拍拍胸脯说：“大爷您放心，不熟我当场把瓜吃了！”大爷一听乐了：“那你先吃一半我看看！”",
@@ -666,12 +812,10 @@ const AIService = {
       return jokes[Math.floor(Math.random() * jokes.length)];
     }
 
-    // 2.7 身份介绍 / 怎么用
     if (/你是谁|你叫什么|你能干什么|怎么用|帮助/.test(t)) {
       return "我是您的智能小伴侣！您可以问我健康养生、算账、讲笑话，也可以直接说“我想听戏曲”、“提醒我吃药”或者“打开豆包”。";
     }
 
-    // 2.8 问候与情感陪伴
     if (/你好|您好|在吗|早上好|晚上好|中午好/.test(t)) {
       return "您好呀！我一直都在呢。您今天身体怎么样，有没有按时吃饭喝水呀？";
     }
@@ -683,7 +827,6 @@ const AIService = {
   },
 
   async askMain(text) {
-    // 第一层：指令与页面跳转意图
     if (text.includes('豆包')) { setTimeout(() => DoubaoLauncher.open(), 200); return "好的，这就为您打开豆包对话。"; }
     if (text.includes('吃药') || text.includes('提醒我') || text.includes('设个闹钟')) { setTimeout(() => Router.go('p10'), 150); return "好的，已经为您打开添加提醒页面啦，把要提醒的事写上就行。"; }
     if (text.includes('转账') || text.includes('银行卡') || text.includes('密码') || text.includes('验证码') || text.includes('中奖')) {
@@ -695,13 +838,11 @@ const AIService = {
     if (text.includes('戏曲') || text.includes('听歌') || text.includes('黄梅戏') || text.includes('京剧') || text.includes('豫剧')) { setTimeout(() => Router.go('p6'), 150); return "好的，为您打开戏曲大观园。"; }
     if (text.includes('打电话') || text.includes('联系') || text.includes('找儿子') || text.includes('找女儿')) { setTimeout(() => Router.go('p14'), 150); return "好的，为您打开亲情联系页面。"; }
 
-    // 第二层：本地精确实时回答（时间、算账等无需等网络）
     if (/几点|时间|星期几|周几|几号|日期/.test(text) || /(\d+(?:\.\d+)?)\s*([加减乘除\+\-\*\/xX×÷])\s*(\d+(?:\.\d+)?)/.test(text)) {
       const instantReply = this.smartLocalAnswer(text);
       if (instantReply) return instantReply;
     }
 
-    // 第三层：调用云端多源真实大模型
     this.history.push({ role: "user", content: text });
     if (this.history.length > 9) this.history.splice(1, 2);
 
@@ -711,14 +852,12 @@ const AIService = {
       return cloudReply;
     }
 
-    // 第四层：云端不可用时，使用本地语义匹配回答具体问题
     const localSmart = this.smartLocalAnswer(text);
     if (localSmart) {
       this.history.push({ role: "assistant", content: localSmart });
       return localSmart;
     }
 
-    // 第五层：针对具体提问句式的引导性回复（不再乱说“您说得对”）
     const cleanQ = text.replace(/[？?。！!，,]/g, '');
     const contextReply = `关于“${cleanQ}”这个问题，当前网络信号不太稳，我暂时查不到详细资料。您可以点击上方“切换到网页版豆包”问问豆包，它知道得可全啦！`;
     this.history.push({ role: "assistant", content: contextReply });
@@ -792,7 +931,7 @@ const FamilyChat = {
   openVoice(contactName) {
     Store.currentContact = contactName;
     document.getElementById('voiceChatWithName').textContent = `和${contactName}语音`;
-    document.getElementById('familyVoiceChatBox').innerHTML = `<div class="bubble ai">${contactName}：爸/妈，按住下方按钮说话，松开我就听到啦。</div>`;
+    document.getElementById('familyVoiceChatBox').innerHTML = `<div class="bubble ai">${contactName}：爸/妈，按住下方按钮说话（看到声浪跳动再松开）。</div>`;
     Router.go('p_chat_voice');
   },
 
@@ -801,14 +940,12 @@ const FamilyChat = {
     history.push({ role: "user", content: text });
     if (history.length > 8) history.splice(1, 2);
 
-    // 优先尝试多源云端大模型，让回答紧扣老人原话
     const cloudReply = await AIService.callCloudLLM(history, 120);
     if (cloudReply) {
       history.push({ role: "assistant", content: cloudReply });
       return cloudReply;
     }
 
-    // 云端不可用时，使用亲情场景精准匹配
     const fallbackReply = this.getLocalResponse(text);
     history.push({ role: "assistant", content: fallbackReply });
     return fallbackReply;
