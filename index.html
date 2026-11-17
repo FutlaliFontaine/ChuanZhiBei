@@ -140,7 +140,7 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
       <div style="font-size:0.85rem; color:#444; margin-bottom:6px;">想要更强大的连续语音通话？</div>
       <button class="btn" style="min-height:48px; margin-top:0; font-size:0.95rem;" onclick="DoubaoLauncher.open()">🚀 切换到网页版豆包</button>
     </div>
-    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的贴心助手。按住下方按钮说话（看到声浪跳动再松开），也可以点下方打字输入！</div></div>
+    <div class="chat" id="chatBox"><div class="bubble ai">您好！我是您的贴心助手。按住下方按钮说话（看到声浪跳动再松开），支持双引擎自动语音转文字！</div></div>
     <button class="btn" id="talkBtn"
       onpointerdown="VoiceEngine.startRec(event)"
       onpointerup="VoiceEngine.stopRec(event)"
@@ -231,6 +231,12 @@ body { background: #e8e4d9; font-family: "PingFang SC", "Microsoft YaHei", sans-
         <button class="btn secondary" onclick="System.changeFont('24px', this)">大</button>
       </div>
     </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:6px;">🎙️ 语音识别加速 Key (可选)</div>
+      <div style="font-size:0.8rem;color:#666;margin-bottom:10px;line-height:1.4;">Edge 浏览器可免填直连；若在无代理的 Chrome 下使用，可填入免费的硅基流动 (SiliconFlow) API Key 实现极速中文识别：</div>
+      <input id="asrApiKeyInput" class="input" placeholder="sk-..." style="height:48px;font-size:0.85rem;margin-bottom:8px;">
+      <button class="btn secondary" style="min-height:46px;margin-top:0;font-size:0.9rem;" onclick="ASRService.saveKey()">保存语音 Key</button>
+    </div>
     <button class="btn secondary" onclick="Router.go('p22')">👥 管理联系人列表</button>
   </section>
 
@@ -251,6 +257,7 @@ const Store = {
     { id: 2, name: "女儿", phone: "13900139000", avatar: "👩" }
   ],
   currentContact: null,
+  asrApiKey: "",
 
   init() {
     try {
@@ -261,9 +268,14 @@ const Store = {
       let c = localStorage.getItem('elder_contacts');
       if (c) { let parsed = JSON.parse(c); if (Array.isArray(parsed) && parsed.length > 0) this.contacts = parsed; }
     } catch(e) {}
+    try {
+      let k = localStorage.getItem('elder_asr_key');
+      if (k) this.asrApiKey = k;
+    } catch(e) {}
   },
   saveReminders() { try { localStorage.setItem('reminders', JSON.stringify(this.reminders)); } catch(e) {} },
-  saveContacts() { try { localStorage.setItem('elder_contacts', JSON.stringify(this.contacts)); } catch(e) {} }
+  saveContacts() { try { localStorage.setItem('elder_contacts', JSON.stringify(this.contacts)); } catch(e) {} },
+  saveAsrKey(k) { this.asrApiKey = k; try { localStorage.setItem('elder_asr_key', k); } catch(e) {} }
 };
 Store.init();
 
@@ -371,7 +383,139 @@ const DoubaoLauncher = {
   }
 };
 
-/* ================= 1.8 通用健壮语音识别器 (带真实麦克风音量检测与声浪指示) ================= */
+/* ================= 1.7 云端 WAV 音频转文字引擎 (解决 Chrome 无法连 Google 语音服务的痛点) ================= */
+const ASRService = {
+  saveKey() {
+    const inp = document.getElementById('asrApiKeyInput');
+    if (!inp) return;
+    Store.saveAsrKey(inp.value.trim());
+    System.toast(Store.asrApiKey ? '语音 Key 已保存' : '已清空自定义 Key');
+  },
+
+  // 将收集到的 Float32Array PCM 数据块编码为 16kHz 单声道 WAV (返回 Blob 与 Base64)
+  encodeWavFromChunks(chunks, sourceSampleRate) {
+    let totalLen = 0;
+    for (let i = 0; i < chunks.length; i++) totalLen += chunks[i].length;
+    if (totalLen === 0) return null;
+
+    const merged = new Float32Array(totalLen);
+    let pos = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      merged.set(chunks[i], pos);
+      pos += chunks[i].length;
+    }
+
+    const targetRate = 16000;
+    const ratio = sourceSampleRate / targetRate;
+    const newLength = Math.max(1, Math.round(merged.length / ratio));
+    const downsampled = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+      const idx = Math.min(merged.length - 1, Math.floor(i * ratio));
+      downsampled[i] = merged[idx];
+    }
+
+    const buffer = new ArrayBuffer(44 + downsampled.length * 2);
+    const view = new DataView(buffer);
+    const writeStr = (offset, str) => {
+      for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    };
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + downsampled.length * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, targetRate, true);
+    view.setUint32(28, targetRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, downsampled.length * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < downsampled.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, downsampled[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const step = 0x8000;
+    for (let i = 0; i < bytes.length; i += step) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+    }
+    return {
+      blob: new Blob([buffer], { type: 'audio/wav' }),
+      base64: btoa(binary)
+    };
+  },
+
+  cleanTranscribedText(raw) {
+    if (!raw) return '';
+    return raw
+      .replace(/^(识别结果|转录结果|语音内容|内容)[：:\s]*/i, '')
+      .replace(/^["“「『]+|["”」』]+$/g, '')
+      .trim();
+  },
+
+  async transcribeWav(wavObj) {
+    if (!wavObj) return null;
+
+    // 通道 1：若用户在“个人设置”填入了硅基流动 (SiliconFlow) Key，优先走国内高速 SenseVoiceSmall 模型
+    if (Store.asrApiKey) {
+      try {
+        const fd = new FormData();
+        fd.append('file', wavObj.blob, 'speech.wav');
+        fd.append('model', 'FunAudioLLM/SenseVoiceSmall');
+        const res = await fetch('https://api.siliconflow.cn/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${Store.asrApiKey}` },
+          body: fd,
+          signal: AbortSignal.timeout(8000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const txt = this.cleanTranscribedText(data?.text);
+          if (txt) return txt;
+        }
+      } catch (e) {}
+    }
+
+    // 通道 2：免 Key 多模态音频理解兜底 (Pollinations openai-audio)
+    try {
+      const res = await fetch('https://text.pollinations.ai/openai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai-audio',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: '请把这段中文语音原封不动地转录为简体中文文字。只输出听到的文字内容本身，不要回答问题，也不要加任何解释或前缀。' },
+                { type: 'input_audio', input_audio: { data: wavObj.base64, format: 'wav' } }
+              ]
+            }
+          ]
+        }),
+        signal: AbortSignal.timeout(9000)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const txt = this.cleanTranscribedText(data?.choices?.[0]?.message?.content);
+        if (txt && txt.length > 0 && !/无法听清|没有语音|空白音频/.test(txt)) {
+          return txt;
+        }
+      }
+    } catch (e) {}
+
+    return null;
+  }
+};
+
+/* ================= 1.8 通用健壮语音识别器 (原生识别 + 本地录音云端转写双引擎) ================= */
 class SpeechRecognizerHelper {
   constructor({ btnId, chatBoxId, onFinalText, onFallback }) {
     this.btnId = btnId;
@@ -388,12 +532,16 @@ class SpeechRecognizerHelper {
     this.interimBubble = null;
     this.lastError = '';
 
-    // 实时音量检测相关
+    // 实时音量检测 & PCM 录音缓存
     this.mediaStream = null;
     this.audioCtx = null;
+    this.processorNode = null;
+    this.muteGainNode = null;
     this.rafId = null;
     this.maxVolume = 0;
     this.currentVolume = 0;
+    this.pcmChunks = [];
+    this.sampleRate = 48000;
   }
 
   getBtn() { return document.getElementById(this.btnId); }
@@ -411,13 +559,18 @@ class SpeechRecognizerHelper {
     }
   }
 
-  updateInterimBubble(text) {
+  updateInterimBubble(text, statusTip = '') {
     const box = this.getBox();
     if (!box) return;
     if (!this.interimBubble) {
       this.interimBubble = document.createElement('div');
       this.interimBubble.className = 'bubble interim';
       box.appendChild(this.interimBubble);
+    }
+    if (statusTip) {
+      this.interimBubble.textContent = statusTip;
+      box.scrollTop = box.scrollHeight;
+      return;
     }
     const v = this.currentVolume;
     const h1 = Math.max(4, Math.min(16, Math.round(v * 0.4)));
@@ -434,9 +587,10 @@ class SpeechRecognizerHelper {
     box.scrollTop = box.scrollHeight;
   }
 
-  async startVolumeMonitor() {
+  async startVolumeMonitorAndCapture() {
     this.maxVolume = 0;
     this.currentVolume = 0;
+    this.pcmChunks = [];
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
     try {
@@ -453,10 +607,29 @@ class SpeechRecognizerHelper {
 
       const ctx = new AudioCtx();
       this.audioCtx = ctx;
+      this.sampleRate = ctx.sampleRate || 48000;
       const source = ctx.createMediaStreamSource(stream);
+
+      // 1. 音量波形分析
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 256;
       source.connect(analyser);
+
+      // 2. 同步录制 PCM 波形（作为浏览器原生识别超时时的云端兜底音频）
+      const processor = ctx.createScriptProcessor(4096, 1, 1);
+      const muteGain = ctx.createGain();
+      muteGain.gain.value = 0;
+      this.processorNode = processor;
+      this.muteGainNode = muteGain;
+
+      processor.onaudioprocess = (ev) => {
+        if (!this.isPressing) return;
+        const input = ev.inputBuffer.getChannelData(0);
+        this.pcmChunks.push(new Float32Array(input));
+      };
+      source.connect(processor);
+      processor.connect(muteGain);
+      muteGain.connect(ctx.destination);
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
@@ -486,10 +659,18 @@ class SpeechRecognizerHelper {
     }
   }
 
-  stopVolumeMonitor() {
+  stopVolumeMonitorAndCapture() {
     if (this.rafId) {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
+    }
+    if (this.processorNode) {
+      try { this.processorNode.disconnect(); } catch (e) {}
+      this.processorNode = null;
+    }
+    if (this.muteGainNode) {
+      try { this.muteGainNode.disconnect(); } catch (e) {}
+      this.muteGainNode = null;
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(t => t.stop());
@@ -501,43 +682,62 @@ class SpeechRecognizerHelper {
     }
   }
 
-  commitResult() {
+  async commitResult() {
     if (this.hasSubmitted) return;
     this.hasSubmitted = true;
-    this.stopVolumeMonitor();
+    this.stopVolumeMonitorAndCapture();
 
-    const text = (this.finalTranscript || this.interimTranscript).trim();
+    const nativeText = (this.finalTranscript || this.interimTranscript).trim();
     const peakVol = this.maxVolume;
     const err = this.lastError;
-    this.resetUI();
+    const recordedChunks = this.pcmChunks.slice();
+    const rate = this.sampleRate;
 
-    if (text) {
-      this.onFinalText(text);
+    // 情况 1：浏览器原生识别已成功出字
+    if (nativeText) {
+      this.resetUI();
+      this.onFinalText(nativeText);
       return;
     }
 
-    // 精确诊断为什么没转出文字
+    // 情况 2：权限或硬件错误
     if (err === 'not-allowed' || err === 'service-not-allowed') {
+      this.resetUI();
       System.toast('未允许麦克风权限！请点击浏览器地址栏左侧小锁允许麦克风', 3600);
       return;
     }
     if (err === 'audio-capture') {
+      this.resetUI();
       System.toast('未检测到麦克风设备，请检查耳机或电脑麦克风连接', 3600);
       if (this.onFallback) this.onFallback();
       return;
     }
     if (peakVol < 1.5 && navigator.mediaDevices) {
-      System.toast('麦克风没有检测到声音！请检查系统麦克风是否静音或调大麦克风音量', 3800);
+      this.resetUI();
+      System.toast('麦克风没有检测到声音！请检查系统麦克风是否静音或调大音量', 3800);
       return;
     }
 
-    // 麦克风确实收到了声音(peakVol >= 1.5)，但语音识别云端无返回（国内网络或本地 file:// 打开常见）
-    const isLocalFile = window.location.protocol === 'file:';
-    if (isLocalFile) {
-      System.toast('麦克风已收到声音，但直接双击打开HTML时浏览器会限制云端语音识别，已切换打字输入', 4200);
+    // 情况 3：麦克风已收到声音，但浏览器自带识别超时/被阻断 -> 自动启用云端音频转写接管！
+    if (recordedChunks.length > 0) {
+      const btn = this.getBtn();
+      if (btn) btn.textContent = '⏳ 正在云端识别语音…';
+      this.updateInterimBubble('', '⏳ 浏览器原生服务超时，正在自动云端识别语音…');
+
+      const wavObj = ASRService.encodeWavFromChunks(recordedChunks, rate);
+      const cloudText = await ASRService.transcribeWav(wavObj);
+
+      this.resetUI();
+      if (cloudText) {
+        this.onFinalText(cloudText);
+        return;
+      }
     } else {
-      System.toast('麦克风已收到声音，但浏览器语音转文字服务连接超时，已为您切换打字输入', 4000);
+      this.resetUI();
     }
+
+    // 情况 4：双引擎均无结果时，友好提示并打开键盘输入
+    System.toast('当前网络无法连接语音识别服务（建议用 Edge 浏览器或检查网络），已切换打字输入', 4200);
     if (this.onFallback) this.onFallback();
   }
 
@@ -553,13 +753,6 @@ class SpeechRecognizerHelper {
     if (this.isPressing) return;
 
     System.stopSpeak();
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      System.toast('当前浏览器不支持原生语音识别，已切换打字输入');
-      if (this.onFallback) this.onFallback();
-      return;
-    }
-
     if (this.recognition) {
       try { this.recognition.abort(); } catch (err) {}
       this.recognition = null;
@@ -575,72 +768,62 @@ class SpeechRecognizerHelper {
     const btn = this.getBtn();
     if (btn) {
       btn.classList.add('recording');
-      btn.textContent = '⏳ 正在开启麦克风…';
+      btn.textContent = '🔴 正在听您说话，松开发送';
     }
     this.updateInterimBubble('');
 
-    // 1. 先配置并启动 SpeechRecognition（单句模式响应更快）
-    const rec = new SR();
-    this.recognition = rec;
-    rec.lang = 'zh-CN';
-    rec.continuous = false;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
+    // 启动麦克风音量监测 + PCM 录音捕获
+    this.startVolumeMonitorAndCapture();
 
-    rec.onaudiostart = () => {
-      if (this.isPressing) {
-        const b = this.getBtn();
-        if (b) b.textContent = '🔴 正在听您说话，松开发送';
-      }
-    };
+    // 同时启动浏览器原生 SpeechRecognition（Edge 下可直接秒出字）
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SR) {
+      const rec = new SR();
+      this.recognition = rec;
+      rec.lang = 'zh-CN';
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
 
-    rec.onresult = (ev) => {
-      let interim = '';
-      let final = '';
-      for (let i = 0; i < ev.results.length; i++) {
-        const transcript = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) {
-          final += transcript;
-        } else {
-          interim += transcript;
+      rec.onresult = (ev) => {
+        let interim = '';
+        let final = '';
+        for (let i = 0; i < ev.results.length; i++) {
+          const transcript = ev.results[i][0].transcript;
+          if (ev.results[i].isFinal) {
+            final += transcript;
+          } else {
+            interim += transcript;
+          }
         }
-      }
-      this.finalTranscript = final;
-      this.interimTranscript = interim;
-      this.updateInterimBubble(final + interim);
+        this.finalTranscript = final;
+        this.interimTranscript = interim;
+        this.updateInterimBubble(final + interim);
 
-      if (!this.isPressing && (final || interim)) {
-        this.commitResult();
-      }
-    };
+        if (!this.isPressing && (final || interim)) {
+          this.commitResult();
+        }
+      };
 
-    rec.onerror = (ev) => {
-      if (ev.error === 'aborted') return;
-      this.lastError = ev.error;
-      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
-        this.isPressing = false;
-        this.commitResult();
-      }
-    };
+      rec.onerror = (ev) => {
+        if (ev.error === 'aborted') return;
+        this.lastError = ev.error;
+        // 如果是网络错误且用户已经松开手，立刻切换到云端录音识别，不傻等超时
+        if (!this.isPressing && ev.error === 'network') {
+          this.commitResult();
+        }
+      };
 
-    rec.onend = () => {
-      if (!this.isPressing && !this.hasSubmitted) {
-        this.commitResult();
-      }
-    };
+      rec.onend = () => {
+        if (!this.isPressing && !this.hasSubmitted) {
+          this.commitResult();
+        }
+      };
 
-    try {
-      rec.start();
-    } catch (err) {
-      this.isPressing = false;
-      this.resetUI();
-      System.toast('启动语音识别失败，请改用打字输入');
-      if (this.onFallback) this.onFallback();
-      return;
+      try {
+        rec.start();
+      } catch (err) {}
     }
-
-    // 2. 启动独立麦克风音量监测，实时判断硬件是否有声音进入
-    this.startVolumeMonitor();
   }
 
   stop(e) {
@@ -654,12 +837,11 @@ class SpeechRecognizerHelper {
     }
     if (!this.isPressing) return;
     this.isPressing = false;
-    this.stopVolumeMonitor();
+    this.stopVolumeMonitorAndCapture();
 
     const holdDuration = Date.now() - this.pressStartTime;
     const hasAnyText = Boolean((this.finalTranscript || this.interimTranscript).trim());
 
-    // 如果只是轻点了一下（小于 450 毫秒）且还没识别出字，提醒长按
     if (holdDuration < 450 && !hasAnyText) {
       this.hasSubmitted = true;
       if (this.recognition) {
@@ -682,12 +864,12 @@ class SpeechRecognizerHelper {
       } catch (err) {
         this.commitResult();
       }
-      // 最多等待 1.8 秒让识别引擎返回最后结果
+      // 等待 1.2 秒原生结果；若 Chrome 连不上 Google 服务器超时，立即转交云端 WAV 转写
       setTimeout(() => {
         if (!this.hasSubmitted) {
           this.commitResult();
         }
-      }, 1800);
+      }, 1200);
     } else {
       this.commitResult();
     }
@@ -758,7 +940,7 @@ const AIService = {
       const w = weeks[now.getDay()];
       const hh = String(now.getHours()).padStart(2, '0');
       const mm = String(now.getMinutes()).padStart(2, '0');
-      return `现在是 ${y}年${m}月${d}日，星期${w}，北京时间 ${hh}点${mm}分。`;
+      return `现在是 ${y}年${m}月${d}日，星期${w}，${hh}点${mm}分。`;
     }
 
     const mathMatch = t.match(/(\d+(?:\.\d+)?)\s*([加减乘除\+\-\*\/xX×÷])\s*(\d+(?:\.\d+)?)/);
@@ -800,7 +982,7 @@ const AIService = {
     }
 
     if (/天气|冷不冷|穿什么|下雨|降温/.test(t)) {
-      return "我这边暂时没连上实时气象台，不过早晚温差大，您出门前最好看看窗外，随身多带件薄外套或马甲，护住后背和脖子准没错！";
+      return "早晚温差大，您出门前最好看看窗外，随身多带件薄外套或马甲，护住后背和脖子准没错！";
     }
 
     if (/笑话|开心|逗我|无聊|解闷/.test(t)) {
@@ -1348,6 +1530,10 @@ const Router = {
       try {
         if (id === 'p9') ReminderManager.render();
         if (id === 'p14') ContactManager.render();
+        if (id === 'p21') {
+          const inp = document.getElementById('asrApiKeyInput');
+          if (inp) inp.value = Store.asrApiKey || '';
+        }
         if (id === 'p22') ContactManager.renderManage();
         if (id === 'p_news') NewsManager.init();
         if (id === 'p8') StoryManager.render();
